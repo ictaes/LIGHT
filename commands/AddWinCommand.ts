@@ -1,8 +1,9 @@
-import {ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, ChatInputCommandInteraction, Colors, EmbedBuilder, GuildMember, Message, MessageFlags, ModalBuilder, SlashCommandBuilder, Snowflake, TextInputBuilder, TextInputStyle, User} from "discord.js";
-import {db, logAction, PointCommand} from "../PointManager.js";
+import {ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, ChatInputCommandInteraction, Colors, EmbedBuilder, GuildMember, MessageFlags, ModalBuilder, SlashCommandBuilder, Snowflake, TextInputBuilder, TextInputStyle, User} from "discord.js";
+import {logAction, PointCommand} from "../PointManager.js";
 import {createErrorEmbed, format, toRewardString} from "../util/EmbedUtil.js";
 import {normalizeChanges, RewardAnswer} from "../util/RewardManager.js";
-import {BotUserContext, MultiplierSetting, getRawUser} from "../util/BotUserContext.js";
+import {BotUserContext, getRawUser} from "../util/BotUserContext.js";
+import type {MultiplierSetting} from "../BotSettingProvider.js";
 
 export default {
 	slashData: new SlashCommandBuilder().setName("addwin").setDescription("Add win to a member")
@@ -21,7 +22,7 @@ export default {
 			await context.reply(err);
 			return;
 		}
-		const multiplier = db.getSettingProvider().getMultiplier(context);
+		const multiplier = context.getActiveMultiplier();
 		let realPoints = points;
 		if (multiplier) {
 			realPoints = Math.ceil(points * multiplier.amount);
@@ -116,7 +117,7 @@ async function checkPointInput(points: number, user: User) {
 }
 
 export async function tryAddEntryMessage(context: BotUserContext, message: string): Promise<boolean> {
-	if (!context.context.channel_id.includes(context.channel?.id || "0")) return false;
+	if (!context.getSettings().channel_id.includes(context.channel?.id || "0")) return false;
 	let args = message.split(" ");
 	const mentions: string[] = args.filter(arg => arg.match(/<@!?(\d+)>/));
 	let targets: Snowflake[] = [];
@@ -160,7 +161,7 @@ export async function tryAddEntryMessage(context: BotUserContext, message: strin
 		await context.reply(err);
 		return true;
 	}
-	const multiplier = db.getSettingProvider().getMultiplier(context);
+	const multiplier = context.getActiveMultiplier();
 	let realPoints = points;
 	if (multiplier) {
 		realPoints = Math.ceil(points * multiplier.amount);

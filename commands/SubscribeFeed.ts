@@ -2,7 +2,7 @@ import {ChatInputCommandInteraction, NewsChannel, PermissionFlagsBits, SlashComm
 import {BotUserContext} from "../util/BotUserContext.js";
 import {createConfirmationEmbed, createErrorEmbed} from "../util/EmbedUtil.js";
 import {subscribe} from "../util/GameDataDistributor.js";
-import {setServerSetting} from "../BotSettingProvider.js";
+import {updateSettings} from "../BotSettingProvider.js";
 import {PointCommand} from "../PointManager.js";
 
 export default {
@@ -23,7 +23,7 @@ export default {
 			return;
 		}
 		let webhook;
-		for (const w of context.context.webhooks) {
+		for (const w of context.getSettings().webhooks) {
 			if (w.clan === clan && w.channel === channel.id) {
 				await context.reply(createErrorEmbed(interaction.user, "⚠ You are already subscribed to that feed!"));
 				return;
@@ -33,7 +33,7 @@ export default {
 				break;
 			}
 		}
-		if (context.context.webhooks.length >= 10) {
+		if (context.getSettings().webhooks.length >= 10) {
 			await context.reply(createErrorEmbed(interaction.user, "⚠ You can only subscribe to 10 feeds at a time!"));
 			return;
 		}
@@ -44,9 +44,9 @@ export default {
 			webhook = webhook?.url;
 		}
 		if (!webhook) return;
-		context.context.webhooks.push({clan: clan, channel: channel.id, url: webhook});
+		context.getSettings().webhooks.push({clan: clan, channel: channel.id, url: webhook});
 		await context.reply(createConfirmationEmbed(interaction.user, `✅ Successfully subscribed to the clan win feed for \`${clan}\` in <#${channel.id}>!`));
 		subscribe(clan, webhook);
-		setServerSetting(context.context);
+		updateSettings();
 	}
 } as PointCommand;

@@ -98,7 +98,7 @@ export function startDialog(context: BaseUserContext) {
 		}).catch(() => {});
 		return;
 	}
-	dialogues[context.guild.id + ":" + context.user.id + ":" + context.channel?.id] = {data: getDefaults(), step: 0};
+	dialogues[context.guild.id + ":" + context.user.id + ":" + context.channel?.id] = {data: getDefaults(context.guild.id), step: 0};
 	sendStep(context, undefined);
 }
 
@@ -143,7 +143,6 @@ export function handleDialog(context: BaseUserContext, message: string) {
 			}).catch(console.error);
 			return;
 		}
-		dialogue.data.guild_id = context.guild.id;
 		setServerSetting(dialogue.data);
 		rewards.loadRewards(dialogue.data);
 		context.reply({

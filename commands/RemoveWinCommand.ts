@@ -1,8 +1,9 @@
 import {ChatInputCommandInteraction, Colors, EmbedBuilder, SlashCommandBuilder, Snowflake, User} from "discord.js";
-import {db, logAction, PointCommand} from "../PointManager.js";
+import {logAction, PointCommand} from "../PointManager.js";
 import {createErrorEmbed, format, toRewardString} from "../util/EmbedUtil.js";
 import {RewardAnswer} from "../util/RewardManager.js";
-import {BotUserContext, MultiplierSetting, getRawUser} from "../util/BotUserContext.js";
+import {BotUserContext, getRawUser} from "../util/BotUserContext.js";
+import type {MultiplierSetting} from "../BotSettingProvider.js";
 
 export default {
 	slashData: new SlashCommandBuilder().setName("removewin").setDescription("Remove win from a member")
@@ -21,7 +22,7 @@ export default {
 			await context.reply(err);
 			return;
 		}
-		const multiplier = await db.getSettingProvider().getMultiplier(context);
+		const multiplier = context.getActiveMultiplier();
 		let realPoints = points;
 		if (multiplier) {
 			realPoints = Math.ceil(points * multiplier.amount);
@@ -53,7 +54,7 @@ async function checkPointInput(points: number, user: User) {
 }
 
 export async function tryRemoveEntryMessage(context: BotUserContext, message: string): Promise<boolean> {
-	if (!context.context.channel_id.includes(context.channel?.id || "0")) return false;
+	if (!context.getSettings().channel_id.includes(context.channel?.id || "0")) return false;
 	let args = message.split(" ");
 	let target: Snowflake = context.id;
 	if (args[0]?.match(/<@!?\d+>/)) {
@@ -88,7 +89,7 @@ export async function tryRemoveEntryMessage(context: BotUserContext, message: st
 		await context.reply(err);
 		return true;
 	}
-	const multiplier = await db.getSettingProvider().getMultiplier(context);
+	const multiplier = context.getActiveMultiplier();
 	let realPoints = points;
 	if (multiplier) {
 		realPoints = Math.ceil(points * multiplier.amount);

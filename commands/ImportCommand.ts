@@ -2,12 +2,12 @@ import {ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, Colors,
 import {BotUserContext, getRawUser} from "../util/BotUserContext.js";
 import {createErrorEmbed} from "../util/EmbedUtil.js";
 import {config, getCommandId, PointCommand} from "../PointManager.js";
-import {setServerSetting} from "../BotSettingProvider.js";
+import {updateSettings} from "../BotSettingProvider.js";
 
 export default {
 	slashData: new SlashCommandBuilder().setName("import").setDescription("Import points from third-party bots").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 	execute: async (context: BotUserContext) => {
-		if ((context.context.status & 0x01) === 1) {
+		if ((context.getSettings().status & 0x01) === 1) {
 			await context.reply(createErrorEmbed(context.user, `❌ This server already has points imported! If this process didn't work, please contact the bot support (see \`</about:${getCommandId("about")}>\`)`));
 			return;
 		}
@@ -81,8 +81,8 @@ function importUnbelievaBoat(context: BotUserContext, msg: any, page: number = 1
 				importUnbelievaBoat(context, msg, data.page + 1);
 			}, 5000);
 		} else {
-			context.context.status |= 0x01;
-			setServerSetting(context.context);
+			context.getSettings().status |= 0x01;
+			updateSettings();
 		}
 	}).catch(async e => {
 		console.error(e);

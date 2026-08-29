@@ -1,7 +1,6 @@
 import {Colors, Snowflake} from "discord.js";
 import {logAction} from "../PointManager.js";
-import {ServerSetting} from "../BotSettingProvider.js";
-import {BotUserContext} from "./BotUserContext.js";
+import {BotUserContext, LimitedServerSettings} from "./BotUserContext.js";
 
 let rewards: { [key: string]: Reward[] } = {};
 let hierarchy: { [key: string]: number[] } = {};
@@ -63,7 +62,7 @@ export async function getProgress(context: BotUserContext): Promise<{ role: Snow
 	return progress;
 }
 
-export function loadRewards(setting: ServerSetting) {
+export function loadRewards(setting: LimitedServerSettings) {
 	let winCache: number[] = [];
 	let pointCache: number[] = [];
 	rewards[setting.guild_id] = [];
@@ -87,7 +86,7 @@ export async function checkChanges(context: BotUserContext, type: string, from: 
 		changes = reward.checkChange(context, type, from, to, changes);
 	}
 
-	if (context.context.roles === "highest") {
+	if (context.getSettings().roles === "highest") {
 		setTimeout(() => applyHierarchy(context, changes), 2000);
 	}
 

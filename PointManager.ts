@@ -168,7 +168,7 @@ export function getCommandId(name: string): string {
 }
 
 export function logAction(context: BotUserContext, action: string, color: ColorResolvable) {
-	const channel = context.guild.channels.cache.get(context.context.log_channel_id);
+	const channel = context.guild.channels.cache.get(context.getSettings().log_channel_id);
 	if (!(channel instanceof TextChannel)) return;
 	channel.send({
 		embeds: [

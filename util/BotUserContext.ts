@@ -1,16 +1,24 @@
-import {Guild, GuildMember, Message, Snowflake} from "discord.js";
+import {Guild, GuildBasedChannel, GuildMember, Message, Snowflake} from "discord.js";
 import {client, rewards} from "../PointManager.js";
-import {getServerContext, ServerSetting} from "../BotSettingProvider.js";
+import {getServerContext, ServerSetting, updateSettings} from "../BotSettingProvider.js";
 import {RewardAnswer} from "./RewardManager.js";
 import {BaseUserContext, InteractionTypes} from "./BaseUserContext.js";
-export type  {MultiplierSetting} from "../BotSettingProvider.js";
+import type {MultiplierSetting} from "../BotSettingProvider.js";
 
+export type LimitedServerSettings = Omit<ServerSetting, "multiplier">;
+
+// TODO: Extract guild-logic
 export class BotUserContext extends BaseUserContext {
-	context: ServerSetting;
+	private readonly context: ServerSetting;
 
 	constructor(id: Snowflake, context: ServerSetting, base: Message | InteractionTypes | null) {
 		super(id, base, (base && base.guild) ? null : client.guilds.cache.get(context.guild_id) as Guild);
 		this.context = context;
+	}
+
+	// TODO: Replace usages of this with utility methods that handle the logic
+	getSettings(): LimitedServerSettings {
+		return this.context;
 	}
 
 	hasModAccess(): boolean {
@@ -21,6 +29,29 @@ export class BotUserContext extends BaseUserContext {
 			}
 		}
 		return false;
+	}
+
+	getActiveMultiplier(): MultiplierSetting | null {
+		if (this.context.multiplier === null) return null;
+		if (this.context.multiplier.end !== null && this.context.multiplier.end < Date.now()) {
+			this.context.multiplier = null;
+			updateSettings();
+		}
+		return this.context.multiplier;
+	}
+
+	setMultiplier(multiplier: MultiplierSetting) {
+		this.context.multiplier = multiplier;
+		updateSettings();
+	}
+
+	clearMultiplier() {
+		this.context.multiplier = null;
+		updateSettings();
+	}
+
+	getWinFeedChannel() : GuildBasedChannel | undefined {
+		return this.context.win_feed ? this.guild.channels.cache.get(this.context.win_feed) : undefined;
 	}
 
 	async registerWin(points: number): Promise<RewardAnswer[]> {

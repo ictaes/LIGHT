@@ -15,6 +15,7 @@ export async function sendToFeed(clan: string, message: string, points: number, 
 		const context = getServerContext(guild);
 		if (!context) continue;
 		if (!context.win_feed) continue;
+		// TODO: Use getWinFeedChannel once we have a proper guild context
 		const channel = g.channels.cache.get(context.win_feed);
 		if (!channel || !(channel instanceof TextChannel || channel instanceof NewsChannel)) continue;
 
@@ -67,12 +68,13 @@ export async function handleFeedInteraction(interaction: Interaction) {
 	let factorInt = 1;
 	let isClaimEdit = false;
 	if (interaction.customId.startsWith("claim_factor_")) {
-		let factor = context.context.factor_buttons[parseInt(interaction.customId.substring(13))] ;
+		let factor = context.getSettings().factor_buttons[parseInt(interaction.customId.substring(13))] ;
 		if (!factor) return;
 		factorInt = factor.factor;
 	}
 	points = Math.ceil(points * factorInt );
-	realPoints = Math.ceil(points * (context.context.multiplier ? context.context.multiplier.amount : 1));
+	const multiplier = context.getActiveMultiplier();
+	realPoints = Math.ceil(points * (multiplier ? multiplier.amount : 1));
 
 	//Already claimed with this factor
 	if (cache.claimed[interaction.user.id] && cache.claimed[interaction.user.id] == factorInt ) {
@@ -90,7 +92,7 @@ export async function handleFeedInteraction(interaction: Interaction) {
 		isClaimEdit = true;
 		//Calculate points to remove using previously claimed factor
 		const realPoints = Math.ceil(
-					cache.points * cache.claimed[interaction.user.id] * (context.context.multiplier ? context.context.multiplier.amount : 1));
+					cache.points * cache.claimed[interaction.user.id] * (multiplier ? multiplier.amount : 1));
 		const regex = new RegExp( '\n<\@' + interaction.user.id + '>.*');
 		//Edit will be executed later by registerWin response
 		message.content = message.content.replace( regex, '' );
@@ -101,7 +103,7 @@ export async function handleFeedInteraction(interaction: Interaction) {
 		updateMessage(cache.msg, Object.keys(cache.claimed).length == 1 && !isClaimEdit, interaction.user.id, factorInt);
 		interaction.reply({
 			embeds: [
-				new EmbedBuilder().setAuthor(context.asAuthor()).setDescription(`Registered win of ${format(points)} ${context.context.multiplier ? `\`x ${context.context.multiplier.amount} (multiplier)\` ` : ``}points to your balance` + toRewardString(response, true, false)).setTimestamp().setColor(Colors.Green).toJSON()
+				new EmbedBuilder().setAuthor(context.asAuthor()).setDescription(`Registered win of ${format(points)} ${multiplier ? `\`x ${multiplier.amount} (multiplier)\` ` : ``}points to your balance` + toRewardString(response, true, false)).setTimestamp().setColor(Colors.Green).toJSON()
 			],
 			flags: MessageFlags.Ephemeral
 		}).catch(() => {});

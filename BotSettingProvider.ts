@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import {Snowflake} from "discord.js";
 import {rewards} from "./PointManager.js";
-import {BotUserContext} from "./util/BotUserContext.js";
+import {LimitedServerSettings} from "./util/BotUserContext.js";
 import {subscribe} from "./util/GameDataDistributor.js";
 
 export interface MultiplierSetting {
@@ -13,7 +13,7 @@ export interface MultiplierSetting {
 export interface ServerSetting {
 	roles: "all" | "highest",
 	auto_points: boolean,
-	guild_id: string,
+	readonly guild_id: Snowflake,
 	tag: string | null,
 	channel_id: Snowflake[],
 	log_channel_id: string,
@@ -29,21 +29,15 @@ export interface ServerSetting {
 	status: number // first bit: 1 = points imported from 3rd party
 }
 
-//const settings: ServerSetting[] = require("./settings.json");
-import rawSettings from "./settings.json" with { type: "json" };
-const settings = rawSettings as ServerSetting[];
+import rawSettings from "./settings.json" with {type: "json"};
+const settings = rawSettings.map((raw: Partial<ServerSetting>) => {
+	if (!raw.guild_id) throw new Error("Found guild settings without a guild_id");
+	return {...getDefaults(raw.guild_id), ...raw};
+});
 const indices: { [key: Snowflake]: number } = {};
 const clanCache: { [key: string]: Snowflake[] } = {};
 
 for (const i in settings) {
-	if (!settings[i].status) settings[i].status = 0;
-	if (!settings[i].auto_points) settings[i].auto_points = false;
-	if (!settings[i].webhooks) settings[i].webhooks = [];
-	if (!settings[i].win_feed) settings[i].win_feed = null;
-	if (!settings[i].claim_channel) settings[i].claim_channel = null;
-	if (!settings[i].claim_channel_description) settings[i].claim_channel_description = null;
-	if (!settings[i].factor_buttons) settings[i].factor_buttons = [];
-	if (!settings[i].tag) settings[i].tag = null;
 	indices[settings[i].guild_id] = parseInt(i);
 
 	let tag = settings[i].tag;
@@ -60,11 +54,11 @@ for (const i in settings) {
 	}
 }
 
-export function getDefaults(): ServerSetting {
-	return {roles: "all", auto_points: false, guild_id: "", tag: null, channel_id: [], log_channel_id: "", update_channel_id: "", mod_roles: [], rewards: [], multiplier: null, webhooks: [], win_feed: null, claim_channel: null, claim_channel_description: null, factor_buttons: [], status: 0};
+export function getDefaults(guild: Snowflake): ServerSetting {
+	return {roles: "all", auto_points: false, guild_id: guild, tag: null, channel_id: [], log_channel_id: "", update_channel_id: "", mod_roles: [], rewards: [], multiplier: null, webhooks: [], win_feed: null, claim_channel: null, claim_channel_description: null, factor_buttons: [], status: 0};
 }
 
-function updateSettings() {
+export function updateSettings() {
 	fs.writeFile("./settings.json", JSON.stringify(settings, null, 4), (err) => {
 		if (err) {
 			console.error(err);
@@ -72,6 +66,7 @@ function updateSettings() {
 	});
 }
 
+//TODO: Move the setting-handling part of BotUserContext here and make this private
 export function getServerContext(guild: Snowflake): ServerSetting | null {
 	if (indices.hasOwnProperty(guild)) {
 		return settings[indices[guild]];
@@ -100,26 +95,7 @@ export function removeServerSetting(guild: Snowflake) {
 	}
 }
 
-export function getMultiplier(context: BotUserContext): MultiplierSetting | null {
-	if (context.context.multiplier === null) return null;
-	if (context.context.multiplier.end !== null && context.context.multiplier.end < Date.now()) {
-		context.context.multiplier = null;
-		updateSettings();
-	}
-	return context.context.multiplier;
-}
-
-export function setMultiplier(context: BotUserContext, multiplier: MultiplierSetting ) {
-	context.context.multiplier = multiplier;
-	updateSettings();
-}
-
-export function clearMultiplier(context: BotUserContext) {
-	context.context.multiplier = null;
-	updateSettings();
-}
-
-export function updateClanTag(context: ServerSetting, tag: string | null) {
+export function updateClanTag(context: LimitedServerSettings, tag: string | null) {
 	if (context.tag === tag) return;
 	if (context.tag !== null && clanCache.hasOwnProperty(context.tag)) {
 		clanCache[context.tag].splice(clanCache[context.tag].indexOf(context.guild_id), 1);

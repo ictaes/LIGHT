@@ -1,6 +1,6 @@
 import {ChatInputCommandInteraction, Colors, EmbedBuilder, PermissionFlagsBits, SlashCommandBuilder} from "discord.js";
-import {Command, db, logAction, PointCommand} from "../PointManager.js";
-import {MultiplierSetting, BotUserContext} from "../util/BotUserContext.js";
+import {logAction, PointCommand} from "../PointManager.js";
+import {BotUserContext} from "../util/BotUserContext.js";
 import {createConfirmationEmbed, createErrorEmbed} from "../util/EmbedUtil.js";
 
 export default {
@@ -21,7 +21,7 @@ export default {
 		const subcommand = interaction.options.getSubcommand();
 		switch (subcommand) {
 			case "set":
-				if (db.getSettingProvider().getMultiplier(context) !== null) {
+				if (context.getActiveMultiplier() !== null) {
 					await context.reply(createErrorEmbed(context.user, "A multiplier is already set, clear that one first!"));
 					return;
 				}
@@ -42,17 +42,17 @@ export default {
 					}
 					processedEnd = date.getTime();
 				}
-				await db.getSettingProvider().setMultiplier(context, { amount: multiplier, end: processedEnd, description: description } as MultiplierSetting );
+				context.setMultiplier({amount: multiplier, end: processedEnd, description});
 				logAction(context, `Multiplier set to ${multiplier}x`, Colors.Yellow);
 				await context.reply(createConfirmationEmbed(context.user, `Set multiplier to ${multiplier}x with description \`${description}\`${processedEnd ? ` ending at <t:${Math.min(processedEnd / 1000)}>` : ""}`));
 				break;
 			case "clear":
-				db.getSettingProvider().clearMultiplier(context);
+				context.clearMultiplier();
 				logAction(context, `Multiplier cleared`, Colors.Red);
 				await context.reply(createConfirmationEmbed(context.user, `Cleared the multiplier!`));
 				break;
 			case "setend":
-				const currentMultiplier = db.getSettingProvider().getMultiplier(context);
+				const currentMultiplier = context.getActiveMultiplier();
 				if (!currentMultiplier) {
 					await context.reply(createErrorEmbed(context.user, `No multiplier set`));
 					return;
@@ -64,7 +64,7 @@ export default {
 					return;
 				}
 				currentMultiplier.end = date.getTime();
-				db.getSettingProvider().setMultiplier(context, currentMultiplier );
+				context.setMultiplier(currentMultiplier);
 				logAction(context, `Multiplier end date set to <t:${Math.min(date.getTime() / 1000)}>`, Colors.Yellow);
 				await context.reply(createConfirmationEmbed(context.user, `Set multiplier end date to <t:${Math.min(date.getTime() / 1000)}>`));
 				break;
@@ -75,7 +75,7 @@ export default {
 } as PointCommand;
 
 export async function sendMultiplierInformation(context: BotUserContext) {
-	const multiplier = db.getSettingProvider().getMultiplier(context);
+	const multiplier = context.getActiveMultiplier();
 	if (!multiplier) {
 		await context.reply({embeds: [new EmbedBuilder().setAuthor({name: context.user.tag, iconURL: context.user.displayAvatarURL()}).setDescription(`No multiplier is currently active`).setTimestamp().setColor(Colors.Blurple).toJSON()]});
 		return;

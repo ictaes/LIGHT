@@ -17,7 +17,7 @@ export default {
 			return;
 		}
 		const eligible: Reward[] = await rewards.calculateEligibleRoles(context);
-		if (context.context.roles === "highest") {
+		if (context.getSettings().roles === "highest") {
 			const filtered = rewards.filterByHierarchy(eligible);
 			if (filtered.length > 0) {
 				const eligibleRoles = eligible.map(r => r.role_id);
