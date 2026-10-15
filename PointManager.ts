@@ -15,6 +15,7 @@ import {handleMessageDelete, handleMessageUpdate} from "./listeners/MessageAudit
 import {handleMemberAdd, handleMemberRemove} from "./listeners/MemberAuditLog.js";
 import {handleReactionAdd, handleReactionRemove} from "./listeners/ReactionRoleHandler.js";
 import {getModLogChannel} from "./util/ModerationUtil.js";
+import {start as startScheduler} from "./util/Scheduler.js";
 import {readFileSync} from "fs";
 import {join} from "path";
 
@@ -82,6 +83,8 @@ client.once(Events.ClientReady, async () => {
 	await registerCommand("CoinflipCommand");
 	await registerCommand("SlotsCommand");
 	await refreshSlashCommands();
+	//Last, so every handler and sweep registered at import time is in place before the first tick.
+	startScheduler();
 });
 
 client.on(Events.InteractionCreate, async interaction => {

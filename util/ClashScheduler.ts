@@ -3,6 +3,7 @@ import {client} from "../PointManager.js";
 import {getOrderById, getDueClashes, resolveClash, ClashResult} from "./OrderUtil.js";
 import {getServerContext} from "../BotSettingProvider.js";
 import {createThemedEmbed, format} from "./EmbedUtil.js";
+import {registerSweep} from "./Scheduler.js";
 
 export async function announceClashResult(result: ClashResult) {
 	const guild = client.guilds.cache.get(result.clash.guild);
@@ -42,6 +43,6 @@ async function checkClashes() {
 	}
 }
 
-setInterval(() => {
-	checkClashes().catch(console.error);
-}, 5000);
+//Registered as a sweep rather than its own setInterval so all periodic work shares one timer.
+//Stateless polling of getDueClashes(), so there is nothing to persist - see util/Scheduler.ts.
+registerSweep("clash_resolve", 5000, checkClashes);
