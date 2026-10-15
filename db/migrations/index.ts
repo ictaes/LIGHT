@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import initialSchema from "./001_initial_schema.js";
 import scheduledTasks from "./002_scheduled_tasks.js";
+import fakePermissions from "./003_fake_permissions.js";
 
 export interface Migration {
 	/** 1-based, contiguous, and never reused or renumbered once released - it is the on-disk schema version. */
@@ -16,7 +17,8 @@ export interface Migration {
 //will orphan their rows.
 export const migrations: Migration[] = [
 	initialSchema,
-	scheduledTasks
+	scheduledTasks,
+	fakePermissions
 ];
 
 //Guards against the two ways a hand-maintained list like this rots: a duplicated version (silently skipped)

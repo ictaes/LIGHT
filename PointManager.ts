@@ -16,12 +16,13 @@ import {handleMemberAdd, handleMemberRemove} from "./listeners/MemberAuditLog.js
 import {handleReactionAdd, handleReactionRemove} from "./listeners/ReactionRoleHandler.js";
 import {getModLogChannel} from "./util/ModerationUtil.js";
 import {start as startScheduler} from "./util/Scheduler.js";
-import {readFileSync} from "fs";
-import {join} from "path";
+import {pruneRole} from "./util/PermissionUtil.js";
+//Re-exported so existing `import {config} from "./PointManager.js"` call sites keep working, while modules
+//that need only the config can import ./Config.js directly without booting the bot as a side effect.
+//Re-exporting an imported binding carries both its type and value meaning.
+import {config} from "./Config.js";
 
-export interface config { token: string, unbelieva_app_id: string, unbelieva_bot_token: string, endpoint_self: string, btt_api_url: string, wss_secret: string, bot_owner: string};
-//Read at runtime rather than imported: a JSON import makes tsc emit the repo-root template over this file on every build, wiping the token
-export const config: config = JSON.parse(readFileSync(join(process.cwd(), "config.json"), "utf8")) as config;
+export {config};
 export const client = new Client({intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.DirectMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessageReactions]});
 
 export interface Command {
@@ -162,6 +163,13 @@ client.on(Events.GuildDelete, async guild => {
 	console.log(`Deleting associated data...`);
 	removeServerSetting(guild.id);
 	db.deleteGuild(guild.id);
+});
+
+//A deleted role must not leave fake-permission rows behind: Discord does not recycle role ids, but a stale
+//row would still show up in /fakepermissions list as an unresolvable id.
+client.on(Events.GuildRoleDelete, role => {
+	const pruned = pruneRole(role.guild.id, role.id);
+	if (pruned > 0) console.log(`Pruned ${pruned} fake permission(s) for deleted role ${role.id} in ${role.guild.id}`);
 });
 
 client.on(Events.MessageDelete, message => handleMessageDelete(message).catch(console.error));

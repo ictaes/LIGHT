@@ -24,7 +24,8 @@ const GUILD_SCOPED_TABLES = [
 	"economy_inventory",
 	//Nullable guild - rows with a NULL guild are process-wide tasks and are correctly left alone by the
 	//`WHERE guild = ?` delete below.
-	"scheduled_tasks"
+	"scheduled_tasks",
+	"fake_permissions"
 ];
 
 /**

@@ -4,6 +4,7 @@ import {getServerContext, ServerSetting, updateSettings} from "../BotSettingProv
 import {RewardAnswer} from "./RewardManager.js";
 import {BaseUserContext, InteractionTypes} from "./BaseUserContext.js";
 import type {MultiplierSetting} from "../BotSettingProvider.js";
+import {hasPermission} from "./PermissionUtil.js";
 
 export type LimitedServerSettings = Omit<ServerSetting, "multiplier">;
 
@@ -21,14 +22,17 @@ export class BotUserContext extends BaseUserContext {
 		return this.context;
 	}
 
+	/**
+	 * Kept as the single call site used by the existing mod commands, but now delegating to PermissionUtil so
+	 * there is one source of truth for access decisions.
+	 *
+	 * Note this is a deliberate widening: the guild owner and anyone holding real ModerateMembers now pass,
+	 * where previously only a configured mod_role did. That fixes a real footgun - a server owner with no mod
+	 * role could not use their own /ban.
+	 */
 	hasModAccess(): boolean {
 		if (!this.member) return false;
-		for (const role of this.member.roles.cache.values() || []) {
-			if (this.context.mod_roles.includes(role.id)) {
-				return true;
-			}
-		}
-		return false;
+		return hasPermission(this.member, "moderate_members");
 	}
 
 	getActiveMultiplier(): MultiplierSetting | null {
