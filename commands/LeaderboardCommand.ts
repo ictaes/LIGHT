@@ -1,9 +1,10 @@
-import {ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, ChatInputCommandInteraction, Colors, EmbedBuilder, Message, SlashCommandBuilder} from "discord.js";
+import {ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, ChatInputCommandInteraction, Message, SlashCommandBuilder} from "discord.js";
 import {PointCommand} from "../PointManager.js";
-import {format} from "../util/EmbedUtil.js";
+import {createThemedEmbed, format} from "../util/EmbedUtil.js";
 import {BotUserContext} from "../util/BotUserContext.js";
 
 export default {
+	requiresUser: true,
 	slashData: new SlashCommandBuilder().setName("leaderboard").setDescription("Show the leaderboard")
 		.addIntegerOption(option => option.setName("page").setDescription("The page to view"))
 		.addIntegerOption(option => option.setName("type").setDescription("Type of leaderboard").addChoices({name: "Points", value: 0}, {name: "Wins", value: 1}))
@@ -28,7 +29,7 @@ async function buildLeaderboardPage(context: BotUserContext, page: number, wins:
 		start.setDate(start.getDate() - duration);
 	}
 	const msg = await context.reply({
-		embeds: [new EmbedBuilder().setColor(Colors.Blurple)
+		embeds: [createThemedEmbed(context.user)
 			.setAuthor({name: `Leaderboard ${duration === -1 ? `of ${context.guild.name}` : `for last ${duration} days`}`, iconURL: context.guild.iconURL() || undefined})
 			.setDescription(`${duration !== -1 ? `<t:${Math.floor(start.getTime() / 1000)}:F> - <t:${Math.floor(end.getTime() / 1000)}:F>\n` : ``}Showing ${wins ? "wins 🏅" : "points 🏆"}\n⠀\n` + leaderboard.map((entry: any, index: number) => `${(page - 1) * 10 + index + 1}. <@${entry.member}> • ${format(entry.value)}`).join("\n"))
 			.setFooter({text: `Page ${page}/${max}`}).toJSON()

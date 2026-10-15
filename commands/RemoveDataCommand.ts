@@ -3,6 +3,7 @@ import {GenericCommand} from "../PointManager.js";
 import {BaseUserContext} from "../util/BaseUserContext.js";
 
 export default {
+	requiresUser: false,
 	slashData: new SlashCommandBuilder().setName("removedata").setDescription("Remove ALL your data from the bot"),
 	execute: async (context: BaseUserContext) => {
 		let channel = await context.user.createDM();

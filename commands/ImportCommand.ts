@@ -5,6 +5,7 @@ import {config, getCommandId, PointCommand} from "../PointManager.js";
 import {updateSettings} from "../BotSettingProvider.js";
 
 export default {
+	requiresUser: true,
 	slashData: new SlashCommandBuilder().setName("import").setDescription("Import points from third-party bots").setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 	execute: async (context: BotUserContext) => {
 		if ((context.getSettings().status & 0x01) === 1) {

@@ -5,12 +5,14 @@ import {BotUserContext} from "../util/BotUserContext.js";
 import {getOrSendMessage} from "../util/ClaimWinChannel.js";
 
 export default {
+	requiresUser: true,
 	slashData: new SlashCommandBuilder().setName("settings").setDescription("Change server settings")
 		.addSubcommand(sub => sub.setName("toggleroles").setDescription("Toggle the roles menu"))
 		.addSubcommand(sub => sub.setName("toggleautopoints").setDescription("Toggle the auto points system"))
 		.addSubcommand(sub => sub.setName("addchannel").setDescription("Add a channel to the channel whitelist").addChannelOption(option => option.setName("channel").setDescription("The channel to add").setRequired(true)))
 		.addSubcommand(sub => sub.setName("removechannel").setDescription("Remove a channel from the channel whitelist").addChannelOption(option => option.setName("channel").setDescription("The channel to remove").setRequired(true)))
 		.addSubcommand(sub => sub.setName("setlogchannel").setDescription("Set the log channel").addChannelOption(option => option.setName("channel").setDescription("The channel to set").setRequired(true)))
+		.addSubcommand(sub => sub.setName("setmodlogchannel").setDescription("Set the moderation log channel").addChannelOption(option => option.setName("channel").setDescription("The channel to set").setRequired(true)))
 		.addSubcommand(sub => sub.setName("setupdatechannel").setDescription("Set the update channel").addChannelOption(option => option.setName("channel").setDescription("The channel to set").setRequired(true)))
 		.addSubcommand(sub => sub.setName("addmodrole").setDescription("Add a role to the mod roles").addRoleOption(option => option.setName("role").setDescription("The role to add").setRequired(true)))
 		.addSubcommand(sub => sub.setName("removemodrole").setDescription("Remove a role from the mod roles").addRoleOption(option => option.setName("role").setDescription("The role to remove").setRequired(true)))
@@ -187,7 +189,11 @@ function getSettingsFields(context: BotUserContext, page: number): { name: strin
 				},
 				{
 					name: "📜 Log Channel",
-					value: `<#${settings.log_channel_id}>\nAll moderation or potentially dangerous actions are logged here.\nEdit: </settings setlogchannel:${getCommandId("settings")}>`
+					value: `<#${settings.log_channel_id}>\nAll point-economy actions are logged here.\nEdit: </settings setlogchannel:${getCommandId("settings")}>`
+				},
+				{
+					name: "🛡 Moderation Log Channel",
+					value: `${settings.mod_log_channel_id ? `<#${settings.mod_log_channel_id}>` : "Not set"}\nKick/ban/timeout/warn actions, automod triggers, message edits/deletes, and member joins/leaves are logged here.\nEdit: </settings setmodlogchannel:${getCommandId("settings")}>`
 				},
 				{
 					name: "📰 Update Channel",
@@ -276,7 +282,7 @@ async function handleSetting(data: ChatInputCommandInteraction, context: BotUser
 		}
 		updateClanTag(context.getSettings(), tag === "" ? null : tag.toUpperCase());
 		await context.reply(`Set the clan tag to ${context.getSettings().tag || "None"}!`);
-	} else if (["addchannel", "removechannel", "setlogchannel", "setupdatechannel", "setwinfeed", "setclaimchannel"].includes(index)) {
+	} else if (["addchannel", "removechannel", "setlogchannel", "setmodlogchannel", "setupdatechannel", "setwinfeed", "setclaimchannel"].includes(index)) {
 		let channel = data.options.getChannel("channel", true);
 		if (!(channel instanceof TextChannel || channel instanceof NewsChannel)) {
 			await context.reply("Invalid channel!");
@@ -302,6 +308,10 @@ async function handleSetting(data: ChatInputCommandInteraction, context: BotUser
 			case "setlogchannel":
 				context.getSettings().log_channel_id = channel.id;
 				await context.reply(`Set the log channel to <#${channel.id}>!`);
+				break;
+			case "setmodlogchannel":
+				context.getSettings().mod_log_channel_id = channel.id;
+				await context.reply(`Set the moderation log channel to <#${channel.id}>!`);
 				break;
 			case "setupdatechannel":
 				context.getSettings().update_channel_id = channel.id;

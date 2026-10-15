@@ -1,10 +1,11 @@
 import {ActionRowBuilder, AttachmentBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, ChatInputCommandInteraction, Colors, EmbedBuilder, InteractionReplyOptions, Message, MessageFlags, SlashCommandBuilder, Snowflake, User} from "discord.js";
 import {PointCommand, rewards} from "../PointManager.js";
-import {format} from "../util/EmbedUtil.js";
+import {createThemedEmbed, format} from "../util/EmbedUtil.js";
 import {BotUserContext, getRawUser} from "../util/BotUserContext.js";
 import {renderDualChart} from "../util/GraphRenderer.js";
 
 export default {
+	requiresUser: true,
 	slashData: new SlashCommandBuilder().setName("profile").setDescription("See a member's profile")
 		.addUserOption(option => option.setName("member").setDescription("The member to view")),
 	execute: async (context: BotUserContext) => {
@@ -18,7 +19,9 @@ export async function showProfileEmbed(context: BotUserContext, target: Snowflak
 	const provider = target === context.id ? context : getRawUser(context.guild.id, target);
 	if (!provider) return;
 	await provider.fetchMember();
-	const embed = new EmbedBuilder();
+	const embed = page === 2
+		? new EmbedBuilder().setAuthor({name: provider.user.tag, iconURL: provider.user.displayAvatarURL()}).setColor(Colors.Green).setTimestamp()
+		: createThemedEmbed(provider.user);
 	let files: AttachmentBuilder[] = [];
 	switch (page) {
 		case 0:
@@ -49,7 +52,7 @@ export async function showProfileEmbed(context: BotUserContext, target: Snowflak
 	}
 	const content : InteractionReplyOptions = {
 		embeds: [
-			embed.setAuthor({name: provider.user.tag, iconURL: provider.user.displayAvatarURL()}).setColor(Colors.Green).setTimestamp().toJSON()
+			embed.toJSON()
 		], components: [
 			new ActionRowBuilder<ButtonBuilder>().addComponents(
 				new ButtonBuilder().setCustomId("profile").setEmoji("👤").setStyle(ButtonStyle.Primary).setDisabled(page === 0),

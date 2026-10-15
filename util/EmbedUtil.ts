@@ -1,5 +1,8 @@
 import {Colors, EmbedBuilder, User} from "discord.js";
 import {RewardAnswer} from "./RewardManager.js";
+import {client} from "../PointManager.js";
+
+export const LIGHT_COLOR = 0x00C2CB;
 
 function createErrorEmbed(user: User, message: string) {
 	return {embeds: [new EmbedBuilder().setAuthor({name: user.tag, iconURL: user.displayAvatarURL()}).setDescription(message).setTimestamp().setColor(Colors.Red).toJSON()]};
@@ -7,6 +10,14 @@ function createErrorEmbed(user: User, message: string) {
 
 function createConfirmationEmbed(user: User, message: string) {
 	return {embeds: [new EmbedBuilder().setAuthor({name: user.tag, iconURL: user.displayAvatarURL()}).setDescription(message).setTimestamp().setColor(Colors.Green).toJSON()]};
+}
+
+function createThemedEmbed(user: User, title?: string): EmbedBuilder {
+	const embed = new EmbedBuilder().setAuthor({name: user.tag, iconURL: user.displayAvatarURL()})
+		.setColor(LIGHT_COLOR).setTimestamp()
+		.setFooter({text: "LIGHT", iconURL: client.user?.displayAvatarURL()});
+	if (title) embed.setTitle(title);
+	return embed;
 }
 
 export function sendUninitializedError(user: User) {
@@ -37,4 +48,4 @@ function formatTime(time: number) {
 	return res.trim();
 }
 
-export {createErrorEmbed, format, formatTime, createConfirmationEmbed};
+export {createErrorEmbed, format, formatTime, createConfirmationEmbed, createThemedEmbed};

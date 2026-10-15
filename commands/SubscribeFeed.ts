@@ -6,6 +6,7 @@ import {updateSettings} from "../BotSettingProvider.js";
 import {PointCommand} from "../PointManager.js";
 
 export default {
+	requiresUser: true,
 	slashData: new SlashCommandBuilder().setName("subscribefeed").setDescription("Subscribe to a clan win feed")
 		.addStringOption(option => option.setName("clan").setDescription("The clan name, 'all' for all clans").setRequired(true))
 		.addChannelOption(option => option.setName("channel").setDescription("The channel to send the feed to").setRequired(true))

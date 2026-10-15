@@ -4,6 +4,7 @@ import {Reward} from "../util/RewardManager.js";
 import {BotUserContext} from "../util/BotUserContext.js";
 
 export default {
+	requiresUser: true,
 	slashData: new SlashCommandBuilder().setName("roles").setDescription("See a list off all available role rewards"),
 	execute: async (context: BotUserContext) => {
 		const roles: Reward[] = rewards.getRewardList(context);

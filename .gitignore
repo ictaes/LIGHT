@@ -6,3 +6,4 @@ build copy
 
 # Files:
 package-lock.json
+feeder-seen.json

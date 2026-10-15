@@ -6,6 +6,7 @@ import {unsubscribe} from "../util/GameDataDistributor.js";
 import {PointCommand} from "../PointManager.js";
 
 export default {
+	requiresUser: true,
 	slashData: new SlashCommandBuilder().setName("unsubscribefeed").setDescription("UnSubscribe from a clan win feed")
 		.setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 	execute: async (context: BotUserContext) => {

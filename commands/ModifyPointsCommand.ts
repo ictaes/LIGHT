@@ -4,6 +4,7 @@ import {createErrorEmbed, format, toRewardString} from "../util/EmbedUtil.js";
 import {BotUserContext, getRawUser} from "../util/BotUserContext.js";
 
 export default {
+	requiresUser: true,
 	slashData: new SlashCommandBuilder().setName("modifypoints").setDescription("Modify points of a member")
 		.addUserOption(option => option.setName("member").setDescription("The member to modify points from").setRequired(true))
 		.addIntegerOption(option => option.setName("type").setDescription("The type of points to modify").setRequired(true).addChoices(

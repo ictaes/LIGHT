@@ -1,15 +1,16 @@
-import {EmbedBuilder, SlashCommandBuilder} from "discord.js";
+import {SlashCommandBuilder} from "discord.js";
 import {client, GenericCommand, getCommandId} from "../PointManager.js";
-import {format, formatTime} from "../util/EmbedUtil.js";
+import {createThemedEmbed, format, formatTime} from "../util/EmbedUtil.js";
 import {BaseUserContext} from "../util/BaseUserContext.js";
 
 export default {
+	requiresUser: false,
 	slashData: new SlashCommandBuilder().setName("about").setDescription("See infos about the bot"),
 	execute: async (context: BaseUserContext) => {
 		const totalData = context.getTotalData();
 		context.reply({
 			embeds: [
-				new EmbedBuilder().setAuthor({name: client.user?.tag ?? "Unknown", iconURL: client.user?.displayAvatarURL()})
+				createThemedEmbed(client.user!)
 					.setFields(
 						{name: "Stats", value: `Tracking ${format(context.getAllTimeEntryCount())} members totalling ${format(totalData.points)} points with ${format(totalData.wins)} wins`},
 						{name: "Commands", value: `Use </help:${getCommandId("help")}> to see all commands`},
@@ -18,7 +19,7 @@ export default {
 						{name: "TOS", value: "https://platz1de.github.io/TTHQ/ps-tos"},
 						{name: "Privacy Policy", value: "https://platz1de.github.io/TTHQ/ps-privacy"},
 						{name: "Support", value: "https://discord.gg/tvgfpeCGaD"}
-					).setFooter({text: "Made with ❤️ by platz1de"}).toJSON()
+					).toJSON()
 			]
 		}).catch(console.error);
 	}

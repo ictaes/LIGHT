@@ -10,6 +10,27 @@ export interface MultiplierSetting {
 	description: string
 };
 
+export interface AutomodSetting {
+	enabled: boolean,
+	spam: { enabled: boolean, max_messages: number, interval_seconds: number } | null,
+	links: { enabled: boolean, allow_invites: boolean, whitelist: string[] } | null,
+	caps: { enabled: boolean, max_percent: number, min_length: number } | null,
+	mention_spam: { enabled: boolean, max_mentions: number } | null,
+	punishment: "delete" | "warn" | "timeout",
+	timeout_seconds: number,
+	exempt_roles: Snowflake[],
+}
+
+export interface EconomySetting {
+	starting_balance: number,
+	daily_amount: number,
+	daily_cooldown_hours: number,
+	work_min: number,
+	work_max: number,
+	work_cooldown_hours: number,
+	max_bet: number | null,
+}
+
 export interface ServerSetting {
 	roles: "all" | "highest",
 	auto_points: boolean,
@@ -26,7 +47,10 @@ export interface ServerSetting {
 	claim_channel: Snowflake | null,
 	claim_channel_description: string | null,
 	factor_buttons: { name: string, factor: number }[],
-	status: number // first bit: 1 = points imported from 3rd party
+	status: number, // first bit: 1 = points imported from 3rd party
+	mod_log_channel_id: Snowflake | null,
+	automod: AutomodSetting,
+	economy: EconomySetting
 }
 
 import rawSettings from "./settings.json" with {type: "json"};
@@ -55,7 +79,7 @@ for (const i in settings) {
 }
 
 export function getDefaults(guild: Snowflake): ServerSetting {
-	return {roles: "all", auto_points: false, guild_id: guild, tag: null, channel_id: [], log_channel_id: "", update_channel_id: "", mod_roles: [], rewards: [], multiplier: null, webhooks: [], win_feed: null, claim_channel: null, claim_channel_description: null, factor_buttons: [], status: 0};
+	return {roles: "all", auto_points: false, guild_id: guild, tag: null, channel_id: [], log_channel_id: "", update_channel_id: "", mod_roles: [], rewards: [], multiplier: null, webhooks: [], win_feed: null, claim_channel: null, claim_channel_description: null, factor_buttons: [], status: 0, mod_log_channel_id: null, automod: {enabled: false, spam: null, links: null, caps: null, mention_spam: null, punishment: "delete", timeout_seconds: 600, exempt_roles: []}, economy: {starting_balance: 100, daily_amount: 50, daily_cooldown_hours: 24, work_min: 10, work_max: 40, work_cooldown_hours: 2, max_bet: 500}};
 }
 
 export function updateSettings() {

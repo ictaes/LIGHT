@@ -6,6 +6,7 @@ import {BotUserContext, getRawUser} from "../util/BotUserContext.js";
 import type {MultiplierSetting} from "../BotSettingProvider.js";
 
 export default {
+	requiresUser: true,
 	slashData: new SlashCommandBuilder().setName("removewin").setDescription("Remove win from a member")
 		.addIntegerOption(option => option.setName("points").setDescription("The amount of points to remove").setRequired(true))
 		.addUserOption(option => option.setName("member").setDescription("The member to remove from")),

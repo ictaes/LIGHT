@@ -6,6 +6,7 @@ import {createErrorEmbed} from "../util/EmbedUtil.js";
 import {startDialog} from "../util/SetupDisalogUtil.js";
 
 export default {
+	requiresUser: false,
 	slashData: new SlashCommandBuilder().setName("setup").setDescription("Start the setup assistant")
 		.setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 	execute: async (context: BaseUserContext) => {

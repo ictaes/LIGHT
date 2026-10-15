@@ -6,6 +6,7 @@ import {renderClanChart} from "../util/GraphRenderer.js";
 import {parse} from "date-fns";
 
 export default {
+	requiresUser: true,
 	slashData: new SlashCommandBuilder().setName("graph").setDescription("Request a clan graph")
 		.addSubcommand(sub => sub.setName("alltime").setDescription("See the all-time graph")
 			.addStringOption(option => option.setName("clan").setDescription("The clan to view").setRequired(true))

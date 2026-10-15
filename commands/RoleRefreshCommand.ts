@@ -4,6 +4,7 @@ import {Reward} from "../util/RewardManager.js";
 import {BotUserContext, getRawUser} from "../util/BotUserContext.js";
 
 export default {
+	requiresUser: true,
 	slashData: new SlashCommandBuilder().setName("rolerefresh").setDescription("Refresh the role rewards")
 		.addUserOption(option => option.setName("member").setDescription("The member to refresh roles from").setRequired(true))
 		.setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles),

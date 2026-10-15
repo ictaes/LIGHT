@@ -3,6 +3,7 @@ import {client, GenericCommand} from "../PointManager.js";
 import {BaseUserContext} from "../util/BaseUserContext.js";
 
 export default {
+	requiresUser: false,
 	slashData: new SlashCommandBuilder().setName("shortcommands").setDescription("See a command list"),
 	execute: async (context: BaseUserContext) => {
 		const ping = "<@" + client.user?.id + "> ";

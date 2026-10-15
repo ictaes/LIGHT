@@ -6,6 +6,7 @@ import {BotUserContext, getRawUser} from "../util/BotUserContext.js";
 import type {MultiplierSetting} from "../BotSettingProvider.js";
 
 export default {
+	requiresUser: true,
 	slashData: new SlashCommandBuilder().setName("addwin").setDescription("Add win to a member")
 		.addIntegerOption(option => option.setName("points").setDescription("The amount of points to add").setRequired(true))
 		.addUserOption(option => option.setName("member").setDescription("The member to add points to")),

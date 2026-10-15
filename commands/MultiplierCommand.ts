@@ -4,6 +4,7 @@ import {BotUserContext} from "../util/BotUserContext.js";
 import {createConfirmationEmbed, createErrorEmbed} from "../util/EmbedUtil.js";
 
 export default {
+	requiresUser: true,
 	slashData: new SlashCommandBuilder().setName("multiplier").setDescription("Modify the current multiplier")
 		.addSubcommand(sub => sub.setName("set").setDescription("Set a new multiplier")
 			.addNumberOption(option => option.setName("multiplier").setDescription("The new multiplier").setRequired(true))
