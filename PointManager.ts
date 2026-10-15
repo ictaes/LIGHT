@@ -15,10 +15,12 @@ import {handleMessageDelete, handleMessageUpdate} from "./listeners/MessageAudit
 import {handleMemberAdd, handleMemberRemove} from "./listeners/MemberAuditLog.js";
 import {handleReactionAdd, handleReactionRemove} from "./listeners/ReactionRoleHandler.js";
 import {getModLogChannel} from "./util/ModerationUtil.js";
-import rawSettings from "./config.json" with { type: "json" };
+import {readFileSync} from "fs";
+import {join} from "path";
 
 export interface config { token: string, unbelieva_app_id: string, unbelieva_bot_token: string, endpoint_self: string, btt_api_url: string, wss_secret: string, bot_owner: string};
-export const config: config = rawSettings as config;
+//Read at runtime rather than imported: a JSON import makes tsc emit the repo-root template over this file on every build, wiping the token
+export const config: config = JSON.parse(readFileSync(join(process.cwd(), "config.json"), "utf8")) as config;
 export const client = new Client({intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.DirectMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessageReactions]});
 
 export interface Command {

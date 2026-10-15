@@ -1,4 +1,5 @@
 import * as fs from "fs";
+import * as path from "path";
 import {Snowflake} from "discord.js";
 import {rewards} from "./PointManager.js";
 import {LimitedServerSettings} from "./util/BotUserContext.js";
@@ -53,8 +54,19 @@ export interface ServerSetting {
 	economy: EconomySetting
 }
 
-import rawSettings from "./settings.json" with {type: "json"};
-const settings = rawSettings.map((raw: Partial<ServerSetting>) => {
+const settingsPath = path.join(process.cwd(), "settings.json");
+
+//Read at runtime rather than imported: a JSON import makes tsc emit the repo-root template ([]) over this file on every build, wiping every guild's settings
+function readRawSettings(): Partial<ServerSetting>[] {
+	try {
+		return JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+	} catch (e) {
+		if ((e as NodeJS.ErrnoException).code === "ENOENT") return [];
+		throw new Error(`Failed to read ${settingsPath}: ${(e as Error).message}`);
+	}
+}
+
+const settings = readRawSettings().map((raw: Partial<ServerSetting>) => {
 	if (!raw.guild_id) throw new Error("Found guild settings without a guild_id");
 	return {...getDefaults(raw.guild_id), ...raw};
 });
@@ -83,7 +95,7 @@ export function getDefaults(guild: Snowflake): ServerSetting {
 }
 
 export function updateSettings() {
-	fs.writeFile("./settings.json", JSON.stringify(settings, null, 4), (err) => {
+	fs.writeFile(settingsPath, JSON.stringify(settings, null, 4), (err) => {
 		if (err) {
 			console.error(err);
 		}

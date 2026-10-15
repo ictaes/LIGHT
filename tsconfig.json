@@ -2,10 +2,14 @@
   "compilerOptions": {
 	"strict": true,
 	"outDir": "build",
-	"module": "node20", //needed for settings.json loading
+	"module": "node20",
 	"target": "es2022",
 	"moduleResolution": "node16",
-	"resolveJsonModule": true,
+	//NOTE: resolveJsonModule cannot be turned off here - "module": "node20" implies it.
+	//So the only thing stopping tsc from emitting the repo-root config.json/settings.json over the live
+	//copies in build/ (wiping the bot token and every guild's settings) is that NO SOURCE FILE IMPORTS JSON.
+	//Never `import x from "./foo.json"` in this project - read it at runtime with fs instead.
+	//See PointManager.ts, BotSettingProvider.ts and scripts/setAvatar.ts for the pattern.
 	"typeRoots": ["node_modules/@types"],
 	"types": ["node"],
   },
