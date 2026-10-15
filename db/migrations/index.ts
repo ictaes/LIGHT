@@ -2,6 +2,7 @@ import type Database from "better-sqlite3";
 import initialSchema from "./001_initial_schema.js";
 import scheduledTasks from "./002_scheduled_tasks.js";
 import fakePermissions from "./003_fake_permissions.js";
+import honeypot from "./004_honeypot.js";
 
 export interface Migration {
 	/** 1-based, contiguous, and never reused or renumbered once released - it is the on-disk schema version. */
@@ -18,7 +19,8 @@ export interface Migration {
 export const migrations: Migration[] = [
 	initialSchema,
 	scheduledTasks,
-	fakePermissions
+	fakePermissions,
+	honeypot
 ];
 
 /**
@@ -43,7 +45,9 @@ export const GUILD_SCOPED_TABLES: string[] = [
 	//Nullable guild - rows with a NULL guild are process-wide tasks, and are correctly left alone by a
 	//`WHERE guild = ?` delete.
 	"scheduled_tasks",
-	"fake_permissions"
+	"fake_permissions",
+	"honeypot_channels",
+	"honeypot_hits"
 ];
 
 //Guards against the two ways a hand-maintained list like this rots: a duplicated version (silently skipped)

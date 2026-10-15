@@ -21,6 +21,7 @@ import {start as startScheduler} from "./util/Scheduler.js";
 import {pruneRole} from "./util/PermissionUtil.js";
 import {AnyCommand, PointCommand, ResponseMode} from "./util/CommandInterface.js";
 import {handleComponentInteraction, registerLegacyComponent} from "./util/ComponentRouter.js";
+import {handleMessage as handleHoneypot, pruneChannel as pruneHoneypotChannel} from "./util/security/HoneypotUtil.js";
 //Re-exported so existing `import {config} from "./PointManager.js"` call sites keep working, while modules
 //that need only the config can import ./Config.js directly without booting the bot as a side effect.
 //Re-exporting an imported binding carries both its type and value meaning.
@@ -140,6 +141,15 @@ async function respondWithError(interaction: ChatInputCommandInteraction): Promi
 
 client.on(Events.MessageCreate, async message => {
 	if (message.author.bot || !(message.member instanceof GuildMember)) return;
+	//Before the empty-content check below, and before getUser: a honeypot post is very often an image or a
+	//sticker with no text at all, and a guild that has never run /setup has no BotUserContext - neither is a
+	//reason for a bait channel to quietly stop working.
+	try {
+		const honeypot = await handleHoneypot(message);
+		if (honeypot.triggered) return;
+	} catch (e) {
+		console.error("Honeypot check failed:", e);
+	}
 	if (message.content === "") return; //Ignore empty messages (missing indent)
 	try {
 		let context = getUser(message.member, message);
@@ -173,6 +183,14 @@ client.on(Events.GuildDelete, async guild => {
 client.on(Events.GuildRoleDelete, role => {
 	const pruned = pruneRole(role.guild.id, role.id);
 	if (pruned > 0) console.log(`Pruned ${pruned} fake permission(s) for deleted role ${role.id} in ${role.guild.id}`);
+});
+
+//A deleted channel must not leave an armed honeypot behind. Discord does not recycle channel ids, but the
+//stale row would show up in /honeypot list as an unresolvable channel nobody can remove by name.
+client.on(Events.ChannelDelete, channel => {
+	if (channel.isDMBased()) return;
+	const pruned = pruneHoneypotChannel(channel.guild.id, channel.id);
+	if (pruned > 0) console.log(`Pruned honeypot config for deleted channel ${channel.id} in ${channel.guild.id}`);
 });
 
 client.on(Events.MessageDelete, message => handleMessageDelete(message).catch(console.error));
