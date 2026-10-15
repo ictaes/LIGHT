@@ -1,4 +1,4 @@
-import {Client, Collection, ColorResolvable, ContextMenuCommandBuilder, EmbedBuilder, Events, GatewayIntentBits, GuildMember, MessageFlags, REST, Routes, TextChannel, ApplicationCommandType, ChatInputCommandInteraction} from "discord.js";
+import {Client, Collection, ColorResolvable, ContextMenuCommandBuilder, EmbedBuilder, Events, GatewayIntentBits, GuildMember, MessageFlags, REST, RESTPutAPIApplicationCommandsResult, Routes, TextChannel, ApplicationCommandType, ChatInputCommandInteraction} from "discord.js";
 import {readdirSync} from "fs";
 import {dirname, join} from "path";
 import {fileURLToPath} from "url";
@@ -232,9 +232,11 @@ async function refreshSlashCommands() {
 		.setName("View Profile")
 		.setType(ApplicationCommandType.Message)
 		.setDMPermission(false));
-	let commandTemp = await rest.put(Routes.applicationCommands(client.user.id), {body: commands});
-	// @ts-ignore
-	for (const command of commandTemp) {
+	//rest.put is typed as returning unknown, so the response shape has to be named. Asserting the documented
+	//REST result type is narrower than the `// @ts-ignore` this replaces, which also hid any mistake in the
+	//loop body below.
+	const registered = await rest.put(Routes.applicationCommands(client.user.id), {body: commands}) as RESTPutAPIApplicationCommandsResult;
+	for (const command of registered) {
 		commandIdTable[command.name] = command.id;
 	}
 	console.log(`Registered ${commands.length} commands`);
