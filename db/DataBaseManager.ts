@@ -1,32 +1,12 @@
 import Database from "better-sqlite3";
 import {Snowflake} from "discord.js";
-import {assertMigrationsWellFormed, migrations} from "./migrations/index.js";
+import {assertMigrationsWellFormed, GUILD_SCOPED_TABLES, migrations} from "./migrations/index.js";
 
 //Relative to cwd, and the bot is started with cwd=build (see start-bot.bat / `npm start`), so the live
 //database is build/ranking.db. Most of its contents sit in ranking.db-wal, so never back it up by copying
 //ranking.db alone - use VACUUM INTO (scripts/build.mjs does).
 const db = new Database("./ranking.db");
 db.pragma("journal_mode = WAL");
-
-//Every table that stores rows keyed by guild, so deleteGuild() cannot silently miss one.
-//Add new guild-scoped tables here in the same change that adds their migration.
-const GUILD_SCOPED_TABLES = [
-	"global_points",
-	"daily_points",
-	"warnings",
-	"mod_actions",
-	"reaction_roles",
-	"orders",
-	"order_members",
-	"clashes",
-	"economy_accounts",
-	"economy_items",
-	"economy_inventory",
-	//Nullable guild - rows with a NULL guild are process-wide tasks and are correctly left alone by the
-	//`WHERE guild = ?` delete below.
-	"scheduled_tasks",
-	"fake_permissions"
-];
 
 /**
  * Brings the database up to the latest schema version.

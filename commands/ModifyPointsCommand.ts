@@ -30,4 +30,4 @@ export default {
 		logAction(context, `Modified ${type === 0 ? "points" : "wins"} from ${user} by ${points}`, Colors.Yellow);
 		await interaction.editReply({embeds: [new EmbedBuilder().setAuthor({name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL()}).setDescription(`Modified ${type === 0 ? "points" : "wins"} from ${user} by ${format(points)}` + toRewardString(response || [], false, false)).setTimestamp().setColor(Colors.Yellow).toJSON()]});
 	}
-} as PointCommand;
+} satisfies PointCommand;

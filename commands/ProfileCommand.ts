@@ -13,7 +13,7 @@ export default {
 		const user: User = interaction.options.getUser("member") || interaction.user;
 		await showProfileEmbed(context, user.id, 0);
 	}
-} as PointCommand;
+} satisfies PointCommand;
 
 export async function showProfileEmbed(context: BotUserContext, target: Snowflake, page: number, ephemeral: boolean = false) {
 	const provider = target === context.id ? context : getRawUser(context.guild.id, target);

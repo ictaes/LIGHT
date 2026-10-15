@@ -18,4 +18,4 @@ export default {
 		const remaining = Math.ceil((lastDaily + cooldownMs - Date.now()) / 1000);
 		await context.reply(createErrorEmbed(context.user, `❌ You already claimed your daily coins! Come back in ${formatTime(remaining)}.`));
 	}
-} as PointCommand;
+} satisfies PointCommand;

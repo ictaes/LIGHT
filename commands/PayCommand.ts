@@ -24,4 +24,4 @@ export default {
 		}
 		await context.reply(createConfirmationEmbed(context.user, `✅ Sent ${format(amount)} 🪙 to ${user}.`));
 	}
-} as PointCommand;
+} satisfies PointCommand;

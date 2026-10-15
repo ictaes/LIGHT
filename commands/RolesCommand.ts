@@ -16,4 +16,4 @@ export default {
 			]
 		});
 	}
-} as PointCommand;
+} satisfies PointCommand;

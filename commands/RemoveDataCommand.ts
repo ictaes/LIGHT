@@ -32,4 +32,4 @@ export default {
 				await context.reply("❌ I couldn't DM you! Make sure you have DMs enabled!");
 			});
 	}
-} as GenericCommand;
+} satisfies GenericCommand;

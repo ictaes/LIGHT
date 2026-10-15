@@ -16,7 +16,7 @@ export default {
 		const duration: number = interaction.options.getInteger("duration") === null ? -1 : Math.max(0, Math.min(interaction.options.getInteger("duration") || 7, 30));
 		await buildLeaderboardPage(context, page, type === 1, duration);
 	}
-} as PointCommand;
+} satisfies PointCommand;
 
 async function buildLeaderboardPage(context: BotUserContext, page: number, wins: boolean, duration: number) {
 	if (isNaN(duration)) duration = 7;

@@ -30,4 +30,4 @@ export default {
 		logModAction(context, `Banned ${user} for: ${reason}`, Colors.Red);
 		await context.reply(createConfirmationEmbed(context.user, `✅ Banned ${user} for: ${reason}`));
 	}
-} as PointCommand;
+} satisfies PointCommand;

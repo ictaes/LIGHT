@@ -68,4 +68,4 @@ export default {
 			]
 		});
 	},
-} as GenericCommand;
+} satisfies GenericCommand;

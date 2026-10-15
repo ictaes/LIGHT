@@ -91,4 +91,4 @@ export default {
 		updateSettings();
 		await context.reply(createConfirmationEmbed(context.user, "✅ Auto-moderation settings updated."));
 	}
-} as PointCommand;
+} satisfies PointCommand;

@@ -61,7 +61,7 @@ export default {
 		if (sub === "edit") return handleEdit(context, interaction);
 		if (sub === "disband") return handleDisband(context);
 	}
-} as PointCommand;
+} satisfies PointCommand;
 
 async function handleCreate(context: BotUserContext, interaction: ChatInputCommandInteraction) {
 	if (!context.hasModAccess()) {

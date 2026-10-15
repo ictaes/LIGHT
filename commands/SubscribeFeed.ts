@@ -50,4 +50,4 @@ export default {
 		subscribe(clan, webhook);
 		updateSettings();
 	}
-} as PointCommand;
+} satisfies PointCommand;

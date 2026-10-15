@@ -56,7 +56,7 @@ export default {
 			}
 		});
 	}
-} as PointCommand;
+} satisfies PointCommand;
 
 function importUnbelievaBoat(context: BotUserContext, msg: any, page: number = 1) {
 	fetch("https://unbelievaboat.com/api/v1/guilds/" + context.guild.id + "/users/?sort=total&page=" + page, {

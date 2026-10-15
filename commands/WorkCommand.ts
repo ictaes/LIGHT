@@ -31,4 +31,4 @@ export default {
 		const remaining = Math.ceil((lastWork + cooldownMs - Date.now()) / 1000);
 		await context.reply(createErrorEmbed(context.user, `❌ You're still tired from your last job! Come back in ${formatTime(remaining)}.`));
 	}
-} as PointCommand;
+} satisfies PointCommand;

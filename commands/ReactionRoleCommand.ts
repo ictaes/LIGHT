@@ -58,4 +58,4 @@ export default {
 			await context.reply(createConfirmationEmbed(context.user, `✅ Removed the reaction role for ${emoji} on that message.`));
 		}
 	}
-} as PointCommand;
+} satisfies PointCommand;

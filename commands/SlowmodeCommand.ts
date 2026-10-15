@@ -25,4 +25,4 @@ export default {
 		logModAction(context, `Set slowmode to ${seconds}s in ${channel}`, Colors.Yellow);
 		await context.reply(createConfirmationEmbed(context.user, seconds === 0 ? `✅ Disabled slowmode in ${channel}.` : `✅ Set slowmode to ${seconds}s in ${channel}.`));
 	}
-} as PointCommand;
+} satisfies PointCommand;

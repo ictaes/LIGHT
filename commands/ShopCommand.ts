@@ -18,7 +18,7 @@ export default {
 		if (sub === "inventory") return handleInventory(context);
 		return handleBuy(context, interaction);
 	}
-} as PointCommand;
+} satisfies PointCommand;
 
 async function handleList(context: BotUserContext) {
 	const items = getItemsForGuild(context.guild.id);

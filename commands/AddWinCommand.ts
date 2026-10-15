@@ -34,7 +34,7 @@ export default {
 		}
 		await showAddWinEmbed(context, points, [user.id], [response], multiplier);
 	}
-} as PointCommand;
+} satisfies PointCommand;
 
 async function showAddWinEmbed(context: BotUserContext, points: number, targets: Snowflake[], rewards: RewardAnswer[][], multiplier: MultiplierSetting | null) {
 	let memberString;

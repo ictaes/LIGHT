@@ -56,4 +56,4 @@ export default {
 		logModAction(context, `Timed out ${member} for ${formatTime(clamped / 1000)} - ${reason}`, Colors.Yellow);
 		await context.reply(createConfirmationEmbed(context.user, `✅ Timed out ${member} for ${formatTime(clamped / 1000)}`));
 	}
-} as PointCommand;
+} satisfies PointCommand;

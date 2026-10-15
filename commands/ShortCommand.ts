@@ -28,4 +28,4 @@ All Commands also work by replying to my message (instead of typing the mention)
 			]
 		});
 	},
-} as GenericCommand;
+} satisfies GenericCommand;

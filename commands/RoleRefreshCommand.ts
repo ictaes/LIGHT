@@ -35,4 +35,4 @@ export default {
 		}
 		await context.reply("Roles refreshed");
 	}
-} as PointCommand;
+} satisfies PointCommand;

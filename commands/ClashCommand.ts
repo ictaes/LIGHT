@@ -37,7 +37,7 @@ export default {
 		if (sub === "end") return handleEnd(context, interaction);
 		if (sub === "info") return handleInfo(context, interaction);
 	}
-} as PointCommand;
+} satisfies PointCommand;
 
 async function handleDeclare(context: BotUserContext, interaction: ChatInputCommandInteraction) {
 	const order = getOrderForMember(context.guild.id, context.id);

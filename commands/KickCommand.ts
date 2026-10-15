@@ -32,4 +32,4 @@ export default {
 		logModAction(context, `Kicked ${member} for: ${reason}`, Colors.Red);
 		await context.reply(createConfirmationEmbed(context.user, `✅ Kicked ${member} for: ${reason}`));
 	}
-} as PointCommand;
+} satisfies PointCommand;

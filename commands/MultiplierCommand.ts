@@ -73,7 +73,7 @@ export default {
 				await sendMultiplierInformation(context);
 		}
 	}
-} as PointCommand;
+} satisfies PointCommand;
 
 export async function sendMultiplierInformation(context: BotUserContext) {
 	const multiplier = context.getActiveMultiplier();

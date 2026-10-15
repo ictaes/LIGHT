@@ -34,7 +34,7 @@ export default {
 		}
 		await showRemoveWinEmbed(context, points, user.id, response, multiplier);
 	}
-} as PointCommand;
+} satisfies PointCommand;
 
 async function showRemoveWinEmbed(context: BotUserContext, points: number, target: Snowflake, rewards: RewardAnswer[], multiplier: MultiplierSetting | null) {
 	await context.reply({

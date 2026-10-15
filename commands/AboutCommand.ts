@@ -23,4 +23,4 @@ export default {
 			]
 		}).catch(console.error);
 	}
-} as GenericCommand;
+} satisfies GenericCommand;

@@ -1,11 +1,13 @@
-import {Client, Collection, ColorResolvable, ContextMenuCommandBuilder, EmbedBuilder, Events, GatewayIntentBits, GuildMember, REST, Routes, SlashCommandBuilder, TextChannel, ApplicationCommandType} from "discord.js";
+import {Client, Collection, ColorResolvable, ContextMenuCommandBuilder, EmbedBuilder, Events, GatewayIntentBits, GuildMember, MessageFlags, REST, Routes, TextChannel, ApplicationCommandType, ChatInputCommandInteraction} from "discord.js";
+import {readdirSync} from "fs";
+import {dirname, join} from "path";
+import {fileURLToPath} from "url";
 import * as rewards from "./util/RewardManager.js";
 import * as db from "./db/DataBaseManager.js";
 import {sendUninitializedError} from "./util/EmbedUtil.js";
 import {handleDialog, hasDialog} from "./util/SetupDisalogUtil.js";
 import {BotUserContext, getUser} from "./util/BotUserContext.js";
 import {removeServerSetting} from "./BotSettingProvider.js";
-import {BaseUserContext} from "./util/BaseUserContext.js";
 import {handleMessage} from "./util/EntryMessageHandler.js";
 import {handleFeedInteraction} from "./util/ClaimWinFeed.js";
 import {handleChannelInteraction} from "./util/ClaimWinChannel.js";
@@ -17,76 +19,44 @@ import {handleReactionAdd, handleReactionRemove} from "./listeners/ReactionRoleH
 import {getModLogChannel} from "./util/ModerationUtil.js";
 import {start as startScheduler} from "./util/Scheduler.js";
 import {pruneRole} from "./util/PermissionUtil.js";
+import {AnyCommand, PointCommand, ResponseMode} from "./util/CommandInterface.js";
+import {handleComponentInteraction, registerLegacyComponent} from "./util/ComponentRouter.js";
 //Re-exported so existing `import {config} from "./PointManager.js"` call sites keep working, while modules
 //that need only the config can import ./Config.js directly without booting the bot as a side effect.
 //Re-exporting an imported binding carries both its type and value meaning.
 import {config} from "./Config.js";
 
 export {config};
-export const client = new Client({intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.DirectMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessageReactions]});
+//All four additions are non-privileged, so no Developer Portal change is needed. GuildModeration carries
+//GuildAuditLogEntryCreate, without which the planned antinuke cannot attribute a destructive action to anyone.
+export const client = new Client({
+	intents: [
+		GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.DirectMessages,
+		GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessageReactions,
+		GatewayIntentBits.GuildModeration, GatewayIntentBits.GuildWebhooks, GatewayIntentBits.GuildExpressions,
+		GatewayIntentBits.GuildInvites
+	]
+});
 
-export interface Command {
-	requiresUser: boolean,
-	slashData: SlashCommandBuilder | { name: string, toJSON(): any }
-	execute: (context: BaseUserContext) => Promise<void>,
-}
+//Re-exported for the existing `import {PointCommand} from "../PointManager.js"` call sites in commands/.
+//New code should import from ./util/CommandInterface.js directly - it has no runtime dependencies, so it does
+//not drag the whole bot in.
+export type {AnyCommand, CommandBase, GenericCommand, PointCommand, ResponseMode} from "./util/CommandInterface.js";
 
-export interface GenericCommand extends Command {
-	requiresUser: false
-}
-
-// @ts-ignore
-export interface PointCommand extends Command {
-	requiresUser: true,
-	execute: (context: BotUserContext) => Promise<void>
-}
-
-const commandRegistry = new Collection<string, Command>();
+const commandRegistry = new Collection<string, AnyCommand>();
 const commandIdTable: { [key: string]: string } = {};
 
 client.once(Events.ClientReady, async () => {
-	await registerCommand("PingCommand");
-	await registerCommand("AddWinCommand");
-	await registerCommand("RemoveWinCommand");
-	await registerCommand("ModifyPointsCommand");
-	await registerCommand("ProfileCommand");
-	await registerCommand("LeaderboardCommand");
-	await registerCommand("SettingsCommand");
-	await registerCommand("RolesCommand");
-	await registerCommand("AboutCommand");
-	await registerCommand("HelpCommand");
-	await registerCommand("MultiplierCommand");
-	await registerCommand("RoleRefreshCommand");
-	await registerCommand("ImportCommand");
-	await registerCommand("RemoveDataCommand");
-	await registerCommand("SetupCommand");
-	await registerCommand("ShortCommand");
-	await registerCommand("SubscribeFeed");
-	await registerCommand("UnSubscribeFeed");
-	await registerCommand("GraphCommand");
-	await registerCommand("KickCommand");
-	await registerCommand("BanCommand");
-	await registerCommand("TimeoutCommand");
-	await registerCommand("WarnCommand");
-	await registerCommand("WarningsCommand");
-	await registerCommand("SlowmodeCommand");
-	await registerCommand("LockdownCommand");
-	await registerCommand("ReactionRoleCommand");
-	await registerCommand("AutomodCommand");
-	await registerCommand("OrderCommand");
-	await registerCommand("ClashCommand");
-	await registerCommand("EconomyCommand");
-	await registerCommand("ShopCommand");
-	await registerCommand("BalanceCommand");
-	await registerCommand("PayCommand");
-	await registerCommand("DailyCommand");
-	await registerCommand("WorkCommand");
-	await registerCommand("CoinflipCommand");
-	await registerCommand("SlotsCommand");
+	await registerCommands();
 	await refreshSlashCommands();
 	//Last, so every handler and sweep registered at import time is in place before the first tick.
 	startScheduler();
 });
+
+//The claim buttons predate the component router and their ids are baked into messages already sitting in
+//people's channels, so they keep raw-string matching rather than being renamed out from under them.
+registerLegacyComponent("claim_win_feed", handleFeedInteraction);
+registerLegacyComponent("claim_win_channel", handleChannelInteraction);
 
 client.on(Events.InteractionCreate, async interaction => {
 	if (interaction.isContextMenuCommand()) {
@@ -106,8 +76,7 @@ client.on(Events.InteractionCreate, async interaction => {
 		}
 		return;
 	}
-	handleFeedInteraction(interaction).catch(console.error);
-	handleChannelInteraction(interaction).catch(console.error);
+	await handleComponentInteraction(interaction).catch(console.error);
 	if (!interaction.isChatInputCommand() || !(interaction.member instanceof GuildMember)) return;
 	try {
 		const context = getUser(interaction.member, interaction)
@@ -118,22 +87,56 @@ client.on(Events.InteractionCreate, async interaction => {
 			return;
 		}
 
-		if (command.requiresUser && !(context instanceof BotUserContext)) {
-			interaction.reply(sendUninitializedError(interaction.user));
-			return;
+		//Resolving the command and its context together, in one place, is what lets `execute` be called without
+		//a cast: checking `requiresUser` narrows the union to one arm, and the instanceof check narrows the
+		//context to match it.
+		let run: () => Promise<void>;
+		if (command.requiresUser) {
+			if (!(context instanceof BotUserContext)) {
+				await interaction.reply(sendUninitializedError(interaction.user));
+				return;
+			}
+			const pointCommand: PointCommand = command;
+			const pointContext: BotUserContext = context;
+			run = () => pointCommand.execute(pointContext);
+		} else {
+			const genericCommand = command;
+			run = () => genericCommand.execute(context);
 		}
 
 		try {
-			await interaction.deferReply();
-			await command.execute(context);
+			await openReply(interaction, command.responseMode ?? "defer");
+			await run();
+			if (!interaction.replied && !interaction.deferred) {
+				//Under "manual" the command owns the reply, so this is the command's bug rather than the
+				//dispatcher's - and Discord shows the user nothing but "application did not respond".
+				console.error(`Command ${interaction.commandName} finished without responding to the interaction`);
+			}
 		} catch (error) {
 			console.error(error);
-			await interaction.editReply({content: "An internal error occurred!"});
+			await respondWithError(interaction);
 		}
 	} catch (e) {
 		console.error(e);
 	}
 });
+
+async function openReply(interaction: ChatInputCommandInteraction, mode: ResponseMode): Promise<void> {
+	if (mode === "defer") await interaction.deferReply();
+	else if (mode === "defer_ephemeral") await interaction.deferReply({flags: MessageFlags.Ephemeral});
+	//"manual" deliberately leaves the interaction untouched: showModal() is rejected once a reply is deferred.
+}
+
+async function respondWithError(interaction: ChatInputCommandInteraction): Promise<void> {
+	const message = {content: "An internal error occurred!"};
+	try {
+		if (interaction.deferred || interaction.replied) await interaction.editReply(message);
+		else await interaction.reply({...message, flags: MessageFlags.Ephemeral});
+	} catch (e) {
+		//editReply throws if the interaction was never deferred, which is the normal case under "manual".
+		console.error("Could not report the error to the user:", e);
+	}
+}
 
 client.on(Events.MessageCreate, async message => {
 	if (message.author.bot || !(message.member instanceof GuildMember)) return;
@@ -179,10 +182,39 @@ client.on(Events.GuildMemberRemove, member => handleMemberRemove(member).catch(c
 client.on(Events.MessageReactionAdd, (reaction, user) => handleReactionAdd(reaction, user).catch(console.error));
 client.on(Events.MessageReactionRemove, (reaction, user) => handleReactionRemove(reaction, user).catch(console.error));
 
-async function registerCommand(file: string) {
-	await import(`./commands/${file}.js`).then((command) => {
-		commandRegistry.set(command.default.slashData.name, command.default);
-	});
+/**
+ * Loads every module in commands/ rather than naming them one by one. With 38 commands already and a long
+ * feature list ahead, "wrote the file, forgot to add it to the list" is a mistake waiting to happen - and its
+ * symptom is a command that simply does not exist, with nothing in the log to say why.
+ *
+ * Resolved from import.meta.url, not cwd: the bot is launched as `cd build && node PointManager.js`, but
+ * nothing enforces that.
+ */
+async function registerCommands() {
+	const directory = join(dirname(fileURLToPath(import.meta.url)), "commands");
+	const files = readdirSync(directory).filter(file => file.endsWith(".js")).sort();
+	const failed: string[] = [];
+	for (const file of files) {
+		try {
+			const module = await import(`./commands/${file}`);
+			const command = module.default as AnyCommand | undefined;
+			if (!command || typeof command.execute !== "function" || !command.slashData?.name) {
+				throw new Error("module does not default-export a command");
+			}
+			const existing = commandRegistry.get(command.slashData.name);
+			//Two files claiming one name means whichever sorts later wins silently, and the other's code is
+			//simply unreachable.
+			if (existing) throw new Error(`duplicate command name "${command.slashData.name}"`);
+			commandRegistry.set(command.slashData.name, command);
+		} catch (e) {
+			failed.push(file);
+			console.error(`Failed to load command ${file}:`, e);
+		}
+	}
+	console.log(`Loaded ${commandRegistry.size} commands from ${files.length} files`);
+	//Loud, because refreshSlashCommands PUTs the full set: a command that failed to load is about to be
+	//deleted from Discord entirely.
+	if (failed.length > 0) console.error(`${failed.length} command file(s) did not load and will be unregistered: ${failed.join(", ")}`);
 }
 
 async function refreshSlashCommands() {

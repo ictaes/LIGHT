@@ -131,5 +131,5 @@ export default {
 			console.error(e);
 		}
 	}
-} as PointCommand;
+} satisfies PointCommand;
 

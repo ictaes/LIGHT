@@ -124,4 +124,4 @@ export default {
 		updateSettings();
 		await context.reply(createConfirmationEmbed(context.user, "✅ Economy settings updated."));
 	}
-} as PointCommand;
+} satisfies PointCommand;

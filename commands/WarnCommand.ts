@@ -23,4 +23,4 @@ export default {
 		logModAction(context, `Warned ${user} for: ${reason} (now has ${total} warning${total === 1 ? "" : "s"})`, Colors.Yellow);
 		await context.reply(createConfirmationEmbed(context.user, `⚠ Warned ${user} for: ${reason}\nThey now have **${total}** warning${total === 1 ? "" : "s"}.`));
 	}
-} as PointCommand;
+} satisfies PointCommand;

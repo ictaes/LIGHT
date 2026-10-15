@@ -16,4 +16,4 @@ export default {
 		}
 		startDialog(context);
 	}
-} as GenericCommand;
+} satisfies GenericCommand;

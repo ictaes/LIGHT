@@ -37,4 +37,4 @@ export default {
 			await context.reply(createConfirmationEmbed(context.user, `🔓 Unlocked ${channel}.`));
 		}
 	}
-} as PointCommand;
+} satisfies PointCommand;

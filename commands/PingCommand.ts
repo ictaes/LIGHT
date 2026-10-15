@@ -8,4 +8,4 @@ export default {
 	execute: async (context: BaseUserContext) => {
 		await context.reply("Pong!");
 	}
-} as GenericCommand;
+} satisfies GenericCommand;

@@ -37,7 +37,7 @@ export default {
 		}
 		await handleSetting(interaction, context, sub);
 	}
-} as PointCommand;
+} satisfies PointCommand;
 
 async function showSettingsEmbed(context: BotUserContext, page: number) {
 	let changes = [], isCritical = false;
