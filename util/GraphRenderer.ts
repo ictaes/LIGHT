@@ -1,6 +1,18 @@
 import {ChartJSNodeCanvas} from "chartjs-node-canvas";
-import {TimeUnit} from "chart.js";
+import type {Chart, ChartConfiguration, TimeUnit, _adapters} from "chart.js";
 import {enGB} from "date-fns/locale/en-GB";
+import type {Day} from "date-fns";
+
+//chart.js attaches its date-adapter registry to the Chart class at runtime but marks it @private, so it is
+//absent from the published typings (the `_adapters` value itself is exported, hence `typeof _adapters` to
+//borrow chart.js's own signature for the one static we touch). We cannot import that value and override it
+//directly: chartjs-node-canvas loads a separate chart.js instance per canvas, so the adapter has to be
+//installed on the exact instance handed to chartCallback.
+type ChartWithAdapters = typeof Chart & {_adapters: typeof _adapters};
+
+function overrideDateAdapter(chartJS: typeof Chart, fns: typeof import("date-fns")): void {
+	(chartJS as ChartWithAdapters)._adapters._date.override(getDateAdapter(fns));
+}
 
 const width = 500;
 const height = 300;
@@ -14,22 +26,13 @@ let darkCanvasWide: ChartJSNodeCanvas;
 
 import("date-fns").then((fns) => {
 	canvasNormal = new ChartJSNodeCanvas({
-		width, height, backgroundColour: "white", chartCallback: (ChartJS) => {
-			// @ts-ignore
-			ChartJS._adapters._date.override(getDateAdapter(fns));
-		}
+		width, height, backgroundColour: "white", chartCallback: (ChartJS) => overrideDateAdapter(ChartJS, fns)
 	});
 	canvasWide = new ChartJSNodeCanvas({
-		width: 3 * width, height: 1.5 * height, backgroundColour: "white", chartCallback: (ChartJS) => {
-			// @ts-ignore
-			ChartJS._adapters._date.override(getDateAdapter(fns));
-		}
+		width: 3 * width, height: 1.5 * height, backgroundColour: "white", chartCallback: (ChartJS) => overrideDateAdapter(ChartJS, fns)
 	});
 	darkCanvasWide = new ChartJSNodeCanvas({
-		width: 3 * width, height: 1.5 * height, backgroundColour: "#212529", chartCallback: (ChartJS) => {
-			// @ts-ignore
-			ChartJS._adapters._date.override(getDateAdapter(fns));
-		}
+		width: 3 * width, height: 1.5 * height, backgroundColour: "#212529", chartCallback: (ChartJS) => overrideDateAdapter(ChartJS, fns)
 	});
 });
 
@@ -60,8 +63,7 @@ export async function renderDualChart(data: { day: string, wins: number, points:
 				}
 			}
 		}
-	};
-	// @ts-ignore
+	} satisfies ChartConfiguration<"line">;
 	return await canvasNormal.renderToBuffer(config);
 }
 
@@ -111,8 +113,10 @@ export async function renderClanChart(data: { label: number, score: number, line
 						text: "Score"
 					},
 					ticks: {
-						callback: function (value: number) {
-							return value / 10000
+						//chart.js types tick values as number | string because category scales label with
+						//strings; this axis is linear, so the value is always numeric
+						callback: function (value: number | string) {
+							return Number(value) / 10000
 						}
 					}
 				}
@@ -138,52 +142,70 @@ export async function renderClanChart(data: { label: number, score: number, line
 				}
 			}
 		}
-	};
+	} satisfies ChartConfiguration<"line">;
 	const canvas = dark ? darkCanvasWide : canvasWide;
-	// @ts-ignore
 	return await canvas.renderToBuffer(config);
+}
+
+//chart.js hands startOf("isoWeek") its options.time.isoWeekday: either a 0-6 weekday index, or a boolean
+//where true means Monday and false means Sunday. date-fns only accepts 0-6, so fold the boolean form in.
+function toWeekStart(weekday?: number | boolean): Day {
+	if (typeof weekday !== "number") return weekday ? 1 : 0;
+	return (((weekday % 7) + 7) % 7) as Day; //the modulo guarantees 0-6, but tsc cannot narrow that
 }
 
 function getDateAdapter(fns: typeof import("date-fns")) {
 	return {
 		formats: () => {
+			//chart.js falls back to these whenever a scale's displayFormats has no entry for the unit it
+			//picked, so every TimeUnit (plus "datetime") needs one - a missing entry reaches date-fns as an
+			//undefined format string and throws.
 			return {
+				millisecond: "HH:mm:ss.SSS",
 				second: "HH:mm:ss",
 				minute: "HH:mm",
 				hour: "HH:mm",
 				day: "dd.MM.yy",
 				week: "dd.MM.yy",
 				month: "MMMM yy",
-				quarter: "MMMM yy"
+				quarter: "MMMM yy",
+				year: "yyyy",
+				datetime: "dd.MM.yy HH:mm:ss"
 			}
 		},
-		parse: function (value: string) {
+		parse: function (value: unknown) {
+			//chart.js only reaches for the adapter when the raw value is not already a finite timestamp, and
+			//parseISO needs a string - anything else (a Date, an object) is not something we can read.
+			if (typeof value !== "string") return null;
 			let date = fns.parseISO(value);
 			return fns.isValid(date) ? date.getTime() : null;
 		},
-		format: function (timestamp: number, unit: TimeUnit) {
-			return fns.format(timestamp, unit, {locale: enGB});
+		//the second argument is a date-fns pattern out of formats()/scale displayFormats (e.g. "dd.MM.yy"),
+		//not a TimeUnit - chart.js has already resolved the unit to its format string by this point
+		format: function (timestamp: number, format: string) {
+			return fns.format(timestamp, format, {locale: enGB});
 		},
-		add: function (time: number, amount: number, unit: TimeUnit) {
+		//date-fns returns Date objects, but chart.js's adapter contract is timestamps - hence .getTime()
+		add: function (time: number, amount: number, unit: TimeUnit): number {
 			switch (unit) {
 				case "millisecond":
-					return fns.addMilliseconds(time, amount);
+					return fns.addMilliseconds(time, amount).getTime();
 				case "second":
-					return fns.addSeconds(time, amount);
+					return fns.addSeconds(time, amount).getTime();
 				case "minute":
-					return fns.addMinutes(time, amount);
+					return fns.addMinutes(time, amount).getTime();
 				case "hour":
-					return fns.addHours(time, amount);
+					return fns.addHours(time, amount).getTime();
 				case "day":
-					return fns.addDays(time, amount);
+					return fns.addDays(time, amount).getTime();
 				case "week":
-					return fns.addWeeks(time, amount);
+					return fns.addWeeks(time, amount).getTime();
 				case "month":
-					return fns.addMonths(time, amount);
+					return fns.addMonths(time, amount).getTime();
 				case "quarter":
-					return fns.addQuarters(time, amount);
+					return fns.addQuarters(time, amount).getTime();
 				case "year":
-					return fns.addYears(time, amount);
+					return fns.addYears(time, amount).getTime();
 				default:
 					return time;
 			}
@@ -212,48 +234,48 @@ function getDateAdapter(fns: typeof import("date-fns")) {
 					return 0;
 			}
 		},
-		startOf: function (timestamp: number, unit: TimeUnit | "isoWeek", weekday?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | undefined) {
+		startOf: function (timestamp: number, unit: TimeUnit | "isoWeek", weekday?: number | boolean): number {
 			switch (unit) {
 				case "second":
-					return fns.startOfSecond(timestamp);
+					return fns.startOfSecond(timestamp).getTime();
 				case "minute":
-					return fns.startOfMinute(timestamp);
+					return fns.startOfMinute(timestamp).getTime();
 				case "hour":
-					return fns.startOfHour(timestamp);
+					return fns.startOfHour(timestamp).getTime();
 				case "day":
-					return fns.startOfDay(timestamp);
+					return fns.startOfDay(timestamp).getTime();
 				case "week":
-					return fns.startOfWeek(timestamp);
+					return fns.startOfWeek(timestamp).getTime();
 				case "isoWeek":
-					return fns.startOfWeek(timestamp, {weekStartsOn: weekday});
+					return fns.startOfWeek(timestamp, {weekStartsOn: toWeekStart(weekday)}).getTime();
 				case "month":
-					return fns.startOfMonth(timestamp);
+					return fns.startOfMonth(timestamp).getTime();
 				case "quarter":
-					return fns.startOfQuarter(timestamp);
+					return fns.startOfQuarter(timestamp).getTime();
 				case "year":
-					return fns.startOfYear(timestamp);
+					return fns.startOfYear(timestamp).getTime();
 				default:
 					return timestamp;
 			}
 		},
-		endOf: function (timestamp: number, unit: TimeUnit | "isoWeek") {
+		endOf: function (timestamp: number, unit: TimeUnit | "isoWeek"): number {
 			switch (unit) {
 				case "second":
-					return fns.endOfSecond(timestamp);
+					return fns.endOfSecond(timestamp).getTime();
 				case "minute":
-					return fns.endOfMinute(timestamp);
+					return fns.endOfMinute(timestamp).getTime();
 				case "hour":
-					return fns.endOfHour(timestamp);
+					return fns.endOfHour(timestamp).getTime();
 				case "day":
-					return fns.endOfDay(timestamp);
+					return fns.endOfDay(timestamp).getTime();
 				case "week":
-					return fns.endOfWeek(timestamp);
+					return fns.endOfWeek(timestamp).getTime();
 				case "month":
-					return fns.endOfMonth(timestamp);
+					return fns.endOfMonth(timestamp).getTime();
 				case "quarter":
-					return fns.endOfQuarter(timestamp);
+					return fns.endOfQuarter(timestamp).getTime();
 				case "year":
-					return fns.endOfYear(timestamp);
+					return fns.endOfYear(timestamp).getTime();
 				default:
 					return timestamp;
 			}

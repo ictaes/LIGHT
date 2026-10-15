@@ -58,13 +58,13 @@ export async function tryRemoveEntryMessage(context: BotUserContext, message: st
 	if (!context.getSettings().channel_id.includes(context.channel?.id || "0")) return false;
 	let args = message.split(" ");
 	let target: Snowflake = context.id;
-	if (args[0]?.match(/<@!?\d+>/)) {
-		// @ts-ignore
-		target = args[0].match(/<@!?(\d+)>/)[1];
+	const firstMention = args[0]?.match(/<@!?(\d+)>/);
+	const secondMention = args[1]?.match(/<@!?(\d+)>/);
+	if (firstMention) {
+		target = firstMention[1];
 		args.shift();
-	} else if (args[1]?.match(/<@!?\d+>/)) {
-		// @ts-ignore
-		target = args[1].match(/<@!?(\d+)>/)[1];
+	} else if (secondMention) {
+		target = secondMention[1];
 	} else if (!isNaN(parseInt(args[0])) && !isNaN(parseInt(args[1]))) {
 		target = args[0];
 		args.shift();

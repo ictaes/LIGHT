@@ -120,14 +120,13 @@ async function checkPointInput(points: number, user: User) {
 export async function tryAddEntryMessage(context: BotUserContext, message: string): Promise<boolean> {
 	if (!context.getSettings().channel_id.includes(context.channel?.id || "0")) return false;
 	let args = message.split(" ");
-	const mentions: string[] = args.filter(arg => arg.match(/<@!?(\d+)>/));
+	const mentions: RegExpMatchArray[] = args.map(arg => arg.match(/<@!?(\d+)>/)).filter((match): match is RegExpMatchArray => match !== null);
 	let targets: Snowflake[] = [];
 	if (mentions.length === 0) {
 		targets.push(context.id);
 	} else {
 		for (const mention of mentions) {
-			// @ts-ignore
-			const id = mention.match(/<@!?(\d+)>/)[1];
+			const id = mention[1];
 			const member = await context.guild.members.fetch(id);
 			if (member) targets.push(member.id);
 		}
