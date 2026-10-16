@@ -35,7 +35,15 @@ export async function checkMessage(context: BotUserContext, message: Message): P
 			triggered = "posting a Discord invite link";
 		} else {
 			const urls = message.content.match(URL_REGEX) || [];
-			const blockedUrl = urls.find(url => !automod.links!.whitelist.some(domain => url.includes(domain)));
+			const blockedUrl = urls.find(url => {
+				let hostname: string;
+				try {
+					hostname = new URL(url).hostname;
+				} catch {
+					return true;
+				}
+				return !automod.links!.whitelist.some(domain => hostname === domain || hostname.endsWith(`.${domain}`));
+			});
 			if (blockedUrl) {
 				triggered = "posting a link that isn't allowed";
 			}
