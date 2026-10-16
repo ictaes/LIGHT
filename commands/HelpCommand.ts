@@ -19,20 +19,18 @@ interface HelpSection {
 function sections(): HelpSection[] {
 	return [
 		{
-			name: "General",
+			name: "Territorial",
 			entries: [
 				`${cmd("addwin")} - Register a win for yourself`,
 				`${cmd("removewin")} - Remove a win (if misadded)`,
-				`${cmd("profile")} - See your or someone else's profile`,
+				`${cmd("profile")} - See your or someone else's points and wins`,
 				`${cmd("leaderboard")} - See the leaderboard`,
 				`${cmd("graph alltime")} - Graph points over all time`,
 				`${cmd("graph month")} / ${cmd("graph week")} - Graph a recent period`,
 				`${cmd("graph custom")} - Graph a custom timeframe`,
-				`${cmd("roles")} - See all role rewards`,
-				`${cmd("shortcommands")} - Shorter, faster-to-type forms of these`,
-				`${cmd("about")} - See infos about the bot`,
-				`${cmd("ping")} - Check that the bot is responding`,
-				`${cmd("help")} - See this list`
+				`${cmd("roles")} - See all role rewards and what they need`,
+				`${cmd("subscribefeed")} - Send game results to a webhook`,
+				`${cmd("unsubscribefeed")} - Stop sending game results`
 			]
 		},
 		{
@@ -64,6 +62,18 @@ function sections(): HelpSection[] {
 				`${cmd("clash declare")} - Declare a clash with another order`,
 				`${cmd("clash end")} - End your order's active clash early`,
 				`${cmd("clash info")} - View a clash's status`
+			]
+		},
+		{
+			name: "Server & General",
+			entries: [
+				`${cmd("help")} - See this list`,
+				`${cmd("shortcommands")} - Shorter message forms of the common commands`,
+				`${cmd("about")} - See infos about the bot`,
+				`${cmd("ping")} - Check that the bot is responding`,
+				`${cmd("setup")} - Run first-time setup for this server`,
+				`${cmd("settings show")} - View and change server settings`,
+				`${cmd("removedata")} - Delete your data`
 			]
 		},
 		{
@@ -103,9 +113,7 @@ function sections(): HelpSection[] {
 		{
 			name: "Admin",
 			entries: [
-				`${cmd("settings show")} - Change server settings`,
-				`${cmd("setup")} - Run first-time setup`,
-				`${cmd("multiplier set")} - Set the current multiplier`,
+				`${cmd("multiplier set")} - Set the current point multiplier`,
 				`${cmd("multiplier clear")} - Remove the current multiplier`,
 				`${cmd("multiplier setend")} - Set the multiplier's end date`,
 				`${cmd("automod show")} - View auto-moderation config`,
@@ -114,10 +122,7 @@ function sections(): HelpSection[] {
 				`${cmd("economy config")} - Set amounts, cooldowns and bet limits`,
 				`${cmd("economy additem")} / ${cmd("economy edititem")} / ${cmd("economy removeitem")} - Manage shop items`,
 				`${cmd("economy setbalance")} - Set a member's balance`,
-				`${cmd("subscribefeed")} - Send game results to a webhook`,
-				`${cmd("unsubscribefeed")} - Stop sending game results`,
-				`${cmd("import")} - Import data from another bot`,
-				`${cmd("removedata")} - Delete your data`
+				`${cmd("import")} - Import data from another bot`
 			]
 		}
 	];
