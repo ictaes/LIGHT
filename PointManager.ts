@@ -7,7 +7,7 @@ import * as db from "./db/DataBaseManager.js";
 import {sendUninitializedError} from "./util/EmbedUtil.js";
 import {handleDialog, hasDialog} from "./util/SetupDisalogUtil.js";
 import {BotUserContext, getUser} from "./util/BotUserContext.js";
-import {removeServerSetting} from "./BotSettingProvider.js";
+import {loadSettings, removeServerSetting} from "./BotSettingProvider.js";
 import {handleMessage} from "./util/EntryMessageHandler.js";
 import {handleFeedInteraction} from "./util/ClaimWinFeed.js";
 import {handleChannelInteraction} from "./util/ClaimWinChannel.js";
@@ -28,6 +28,11 @@ import {handleMessage as handleHoneypot, pruneChannel as pruneHoneypotChannel} f
 import {config} from "./Config.js";
 
 export {config};
+
+//Settings load lazily so that nothing reaches across the RewardManager/LogUtil/BotSettingProvider import
+//cycle during module evaluation. This call makes it eager again from the one place where that is safe:
+//PointManager's body runs only after every import in the graph is fully evaluated.
+loadSettings();
 //All four additions are non-privileged, so no Developer Portal change is needed. GuildModeration carries
 //GuildAuditLogEntryCreate, without which the planned antinuke cannot attribute a destructive action to anyone.
 export const client = new Client({

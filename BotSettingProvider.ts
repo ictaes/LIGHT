@@ -70,27 +70,59 @@ function readRawSettings(): Partial<ServerSetting>[] {
 	}
 }
 
-const settings = readRawSettings().map((raw: Partial<ServerSetting>) => {
-	if (!raw.guild_id) throw new Error("Found guild settings without a guild_id");
-	return {...getDefaults(raw.guild_id), ...raw};
-});
+const settings: ServerSetting[] = [];
 const indices: { [key: Snowflake]: number } = {};
 const clanCache: { [key: string]: Snowflake[] } = {};
+let loaded = false;
 
-for (const i in settings) {
-	indices[settings[i].guild_id] = parseInt(i);
+/**
+ * Loads settings.json on first use rather than at module evaluation.
+ *
+ * This is load-bearing, not tidiness. This module sits in an import cycle - RewardManager imports LogUtil,
+ * LogUtil imports this file for the legacy log-channel fallback, and this file calls back into
+ * RewardManager. Doing that call at module-evaluation time meant reaching into RewardManager while its own
+ * body had not run yet, so its `let rewards` was still in the temporal dead zone and the bot died on boot
+ * with "Cannot access 'rewards' before initialization".
+ *
+ * Deferring to first access sidesteps the ordering question entirely: every caller below is invoked at
+ * runtime, by which point every module in the cycle is fully evaluated. Keep it that way - nothing in this
+ * file should run at import time.
+ *
+ * PointManager still calls loadSettings() explicitly from its module body, which runs after every import is
+ * resolved. That keeps loading eager in production, which matters: webhook subscriptions are registered
+ * here, and GameDataDistributor pushes to subscribers before it touches anything that would have triggered
+ * a lazy load, so the first game result of the run would otherwise go to nobody.
+ */
+export function loadSettings(): void {
+	ensureLoaded();
+}
 
-	let tag = settings[i].tag;
-	if (tag !== null) {
-		if (!clanCache.hasOwnProperty(tag)) {
-			clanCache[tag] = [];
-		}
-		clanCache[tag].push(settings[i].guild_id);
+function ensureLoaded(): void {
+	if (loaded) return;
+	//Set before the work, not after: loadRewards and subscribe must not be able to re-enter this and
+	//double-load if they ever end up reading settings themselves.
+	loaded = true;
+
+	for (const raw of readRawSettings()) {
+		if (!raw.guild_id) throw new Error("Found guild settings without a guild_id");
+		settings.push({...getDefaults(raw.guild_id), ...raw});
 	}
 
-	rewards.loadRewards(settings[i]);
-	for (const webhook of settings[i].webhooks) {
-		subscribe(webhook.clan, webhook.url);
+	for (const i in settings) {
+		indices[settings[i].guild_id] = parseInt(i);
+
+		let tag = settings[i].tag;
+		if (tag !== null) {
+			if (!clanCache.hasOwnProperty(tag)) {
+				clanCache[tag] = [];
+			}
+			clanCache[tag].push(settings[i].guild_id);
+		}
+
+		rewards.loadRewards(settings[i]);
+		for (const webhook of settings[i].webhooks) {
+			subscribe(webhook.clan, webhook.url);
+		}
 	}
 }
 
@@ -99,6 +131,8 @@ export function getDefaults(guild: Snowflake): ServerSetting {
 }
 
 export function updateSettings() {
+	//Guarded like the readers: writing before the load would persist an empty array over the real file.
+	ensureLoaded();
 	fs.writeFile(settingsPath, JSON.stringify(settings, null, 4), (err) => {
 		if (err) {
 			console.error(err);
@@ -108,6 +142,7 @@ export function updateSettings() {
 
 //TODO: Move the setting-handling part of BotUserContext here and make this private
 export function getServerContext(guild: Snowflake): ServerSetting | null {
+	ensureLoaded();
 	if (indices.hasOwnProperty(guild)) {
 		return settings[indices[guild]];
 	}
@@ -115,6 +150,7 @@ export function getServerContext(guild: Snowflake): ServerSetting | null {
 }
 
 export function setServerSetting(setting: ServerSetting) {
+	ensureLoaded();
 	if (!indices.hasOwnProperty(setting.guild_id)) {
 		indices[setting.guild_id] = Object.keys(indices).length;
 		console.log(`Added new server ${setting.guild_id} at index ${settings.length}`);
@@ -124,6 +160,7 @@ export function setServerSetting(setting: ServerSetting) {
 }
 
 export function removeServerSetting(guild: Snowflake) {
+	ensureLoaded();
 	if (indices.hasOwnProperty(guild)) {
 		updateClanTag(settings[indices[guild]], null);
 		settings.splice(indices[guild], 1);
@@ -136,6 +173,7 @@ export function removeServerSetting(guild: Snowflake) {
 }
 
 export function updateClanTag(context: LimitedServerSettings, tag: string | null) {
+	ensureLoaded();
 	if (context.tag === tag) return;
 	if (context.tag !== null && clanCache.hasOwnProperty(context.tag)) {
 		clanCache[context.tag].splice(clanCache[context.tag].indexOf(context.guild_id), 1);
@@ -151,6 +189,7 @@ export function updateClanTag(context: LimitedServerSettings, tag: string | null
 }
 
 export function getGuildsForClan(clan: string): Snowflake[] {
+	ensureLoaded();
 	if (clanCache.hasOwnProperty(clan)) {
 		return clanCache[clan];
 	}
