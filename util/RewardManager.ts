@@ -1,6 +1,9 @@
 import {Colors, Snowflake} from "discord.js";
-import {logAction} from "../PointManager.js";
-import {BotUserContext, LimitedServerSettings} from "./BotUserContext.js";
+//From LogUtil, not PointManager: importing PointManager here put client.login() on the import path of
+//anything that reaches RewardManager, which includes BotSettingProvider and therefore PermissionUtil.
+import {logAction} from "./LogUtil.js";
+//Type-only: BotUserContext imports PointManager, and both of these are used purely as parameter types here.
+import type {BotUserContext, LimitedServerSettings} from "./BotUserContext.js";
 
 let rewards: { [key: string]: Reward[] } = {};
 let hierarchy: { [key: string]: number[] } = {};

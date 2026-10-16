@@ -264,27 +264,13 @@ export function getCommandId(name: string): string {
 	return commandIdTable[name] || "0";
 }
 
-export function logAction(context: BotUserContext, action: string, color: ColorResolvable) {
-	const channel = context.guild.channels.cache.get(context.getSettings().log_channel_id);
-	if (!(channel instanceof TextChannel)) return;
-	channel.send({
-		embeds: [
-			new EmbedBuilder().setAuthor({name: context.user.tag, iconURL: context.user.displayAvatarURL()})
-				.setDescription(action).setColor(color).setTimestamp().toJSON()
-		]
-	}).catch(console.error);
-}
-
-export function logModAction(context: BotUserContext, action: string, color: ColorResolvable) {
-	const channel = getModLogChannel(context);
-	if (!channel) return;
-	channel.send({
-		embeds: [
-			new EmbedBuilder().setAuthor({name: context.user.tag, iconURL: context.user.displayAvatarURL()})
-				.setDescription(action).setColor(color).setTimestamp().toJSON()
-		]
-	}).catch(console.error);
-}
+//These moved to util/LogUtil.ts and are re-exported here so the ~10 existing call sites in commands/ and
+//listeners/ need no change. Their behaviour is the same, except that the destination is now resolved through
+//the log category first and only then from the legacy settings.json field.
+//
+//The move is not cosmetic: RewardManager imported logAction from this file, and BotSettingProvider imported
+//RewardManager, so resolving a permission used to pull in client.login().
+export {logAction, logModAction} from "./util/LogUtil.js";
 
 client.login(config.token).then(() => console.log("Authenticated to Discord API!"));
 

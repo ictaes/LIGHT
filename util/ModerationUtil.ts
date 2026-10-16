@@ -1,6 +1,6 @@
 import {Guild, Snowflake, TextChannel} from "discord.js";
 import * as db from "../db/DataBaseManager.js";
-import {BotUserContext} from "./BotUserContext.js";
+import type {BotUserContext} from "./BotUserContext.js";
 import {getServerContext} from "../BotSettingProvider.js";
 
 const database = db.getProvider();

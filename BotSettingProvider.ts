@@ -1,9 +1,13 @@
 import * as fs from "fs";
 import * as path from "path";
 import {Snowflake} from "discord.js";
-import {rewards} from "./PointManager.js";
-import {LimitedServerSettings} from "./util/BotUserContext.js";
-import {subscribe} from "./util/GameDataDistributor.js";
+//Directly, rather than through PointManager's re-export: going via PointManager meant that reading a guild's
+//settings booted the bot, which is what made PermissionUtil impossible to unit test.
+import * as rewards from "./util/RewardManager.js";
+//`import type`, not a plain import: BotUserContext imports PointManager, and only the type is needed here.
+//A value import would re-create the cycle this file was just taken out of.
+import type {LimitedServerSettings} from "./util/BotUserContext.js";
+import {subscribe} from "./util/WebhookSubscriptions.js";
 
 export interface MultiplierSetting {
 	amount: number,
