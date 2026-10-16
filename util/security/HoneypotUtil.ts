@@ -126,9 +126,10 @@ export async function handleMessage(message: Message): Promise<HoneypotResult> {
 			throw new Error(`the bot is missing the permission needed to ${row.action}`);
 		}
 		//Role hierarchy, not just permissions: Discord refuses to act on anyone whose highest role is at or
-		//above the bot's, and `manageable` is the check that covers both that and the guild owner.
-		if (row.action !== "ban" && !member.manageable) {
-			throw new Error("the target's highest role is above the bot's");
+		//above the bot's. Checked up front so the recorded failure says which problem it was, instead of a
+		//bare "Missing Permissions" that is equally consistent with the bot lacking the permission entirely.
+		if (row.action === "ban" ? !member.bannable : !member.manageable) {
+			throw new Error("the target's highest role is at or above the bot's");
 		}
 
 		switch (row.action) {
