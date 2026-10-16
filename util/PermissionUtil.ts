@@ -106,6 +106,27 @@ export function hasPermission(member: GuildMember, permission: LightPermission):
 	return resolvePermission(member, permission).allowed;
 }
 
+/**
+ * Narrow variant of hasModAccess's old contract: owner, bot owner and Administrator always pass (so nobody
+ * can lock themselves out of their own server/bot), and otherwise access is granted ONLY via a configured
+ * mod_role.
+ *
+ * Deliberately does NOT fall through to the native Discord permission that would otherwise back `permission`
+ * (e.g. ModerateMembers). That fallback lives in resolvePermission()/hasPermission() for the granular
+ * manage_economy/manage_roles/manage_messages permission system and fake permissions, but mod-gated commands
+ * must stay scoped to mod_roles - a guild that hands a broad "Staff" role Discord's native Timeout Members
+ * permission without ever adding that role to LIGHT's own mod_roles setting should not silently get
+ * economy-admin/order-admin rights through it.
+ */
+export function hasModRoleAccess(member: GuildMember): boolean {
+	if (member.id === member.guild.ownerId) return true;
+	if (member.id === config.bot_owner) return true;
+	if (member.permissions.has(PermissionFlagsBits.Administrator)) return true;
+
+	const settings = getServerContext(member.guild.id);
+	return !!settings && member.roles.cache.some(role => settings.mod_roles.includes(role.id));
+}
+
 function hasFakePermission(member: GuildMember, permission: LightPermission): boolean {
 	const roleIds = [...member.roles.cache.keys()];
 	if (roleIds.length === 0) return false;
