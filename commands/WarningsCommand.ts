@@ -40,8 +40,12 @@ export default {
 		if (sub === "clear") {
 			const id = interaction.options.getInteger("id");
 			if (id !== null) {
-				clearWarning(id);
-				await context.reply(createConfirmationEmbed(context.user, `✅ Cleared warning #${id} for ${user}.`));
+				const cleared = clearWarning(id, context.guild.id, user.id);
+				if (cleared) {
+					await context.reply(createConfirmationEmbed(context.user, `✅ Cleared warning #${id} for ${user}.`));
+				} else {
+					await context.reply(createErrorEmbed(context.user, `❌ No warning #${id} found for ${user}.`));
+				}
 			} else {
 				const count = clearAllWarnings(context.guild.id, user.id);
 				await context.reply(createConfirmationEmbed(context.user, `✅ Cleared ${count} warning${count === 1 ? "" : "s"} for ${user}.`));

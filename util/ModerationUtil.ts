@@ -24,8 +24,9 @@ export function getWarnings(guild: Snowflake, member: Snowflake): WarningRow[] {
 	return database.prepare<[Snowflake, Snowflake], WarningRow>("SELECT * FROM warnings WHERE guild = ? AND member = ? ORDER BY created_at DESC").all(guild, member);
 }
 
-export function clearWarning(id: number) {
-	database.prepare("DELETE FROM warnings WHERE id = ?").run(id);
+export function clearWarning(id: number, guild: Snowflake, member: Snowflake): boolean {
+	const result = database.prepare("DELETE FROM warnings WHERE id = ? AND guild = ? AND member = ?").run(id, guild, member);
+	return result.changes === 1;
 }
 
 export function clearAllWarnings(guild: Snowflake, member: Snowflake): number {
