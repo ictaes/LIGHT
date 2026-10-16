@@ -226,19 +226,26 @@ async function registerCommands() {
 			if (!command || typeof command.execute !== "function" || !command.slashData?.name) {
 				throw new Error("module does not default-export a command");
 			}
+			const name = command.slashData.name;
 			//`requiresUser` is the discriminant the InteractionCreate handler branches on directly to pick
 			//between a BotUserContext and a bare BaseUserContext - the `satisfies PointCommand`/`GenericCommand`
 			//check that guarantees it is a literal boolean is compile-time only and erased here. A stale or
 			//partially-rebuilt .js file with requiresUser missing/undefined must fail loudly at load instead of
 			//silently reaching the dispatcher and running against the wrong context type.
+			//
+			//TS statically proves this branch unreachable (AnyCommand's requiresUser is already a literal
+			//boolean), which is exactly why it narrows `command` to `never` here - that's a compile-time
+			//guarantee, not a runtime one, so the check still earns its keep against a stale .js build where
+			//the guarantee doesn't hold. Read `name` instead of `command.slashData.name` since `command` itself
+			//is unusable in this branch.
 			if (typeof command.requiresUser !== "boolean") {
-				throw new Error(`command "${command.slashData.name}" in ${file} has a non-boolean requiresUser`);
+				throw new Error(`command "${name}" in ${file} has a non-boolean requiresUser`);
 			}
-			const existing = commandRegistry.get(command.slashData.name);
+			const existing = commandRegistry.get(name);
 			//Two files claiming one name means whichever sorts later wins silently, and the other's code is
 			//simply unreachable.
-			if (existing) throw new Error(`duplicate command name "${command.slashData.name}"`);
-			commandRegistry.set(command.slashData.name, command);
+			if (existing) throw new Error(`duplicate command name "${name}"`);
+			commandRegistry.set(name, command);
 		} catch (e) {
 			failed.push(file);
 			console.error(`Failed to load command ${file}:`, e);
