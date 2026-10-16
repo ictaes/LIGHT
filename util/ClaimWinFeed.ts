@@ -7,6 +7,7 @@ import {BotUserContext, getUser, LimitedServerSettings} from "./BotUserContext.j
 import {format, toRewardString} from "./EmbedUtil.js";
 import {ClanGame} from "./ClanGame.js";
 import {buildCustomId, registerComponent} from "./ComponentRouter.js";
+import {getRankingContext, RankingContext} from "./ClanRanking.js";
 
 const NAMESPACE = "winfeed";
 /** Index used for the plain 1x button, which is not one of the configured factor buttons. */
@@ -28,6 +29,8 @@ interface FeedEntry {
 	/** Base points for the game, before any button factor or server multiplier. */
 	points: number;
 	game: ClanGame;
+	/** Leaderboard snapshot taken when the game was posted, or null if it was unavailable. */
+	ranking: RankingContext | null;
 	timestamp: number;
 	claimed: { [key: Snowflake]: ClaimRecord };
 }
@@ -48,6 +51,29 @@ function resolveButton(settings: LimitedServerSettings, id: string): { label: st
 	return button ? {label: button.name, factor: button.factor} : null;
 }
 
+function rankLine(rank: number, name: string, points: number): string {
+	return `#${rank} ${name} — ${points.toFixed(5)}`;
+}
+
+/**
+ * The clan's own line always uses the game's figures, not the leaderboard's. The leaderboard is a snapshot
+ * that may have been taken before this win was counted, so its points and the gain would not add up.
+ */
+function buildRankingValue(entry: FeedEntry): string {
+	const game = entry.game;
+	const own = `**${rankLine(entry.ranking?.entry.rank ?? 0, game.clan, game.currClanPoints)} (+${game.gainPoints.toFixed(5)})**`;
+	if (!entry.ranking) {
+		//No leaderboard: show what the feed knows and drop the rank, rather than guessing a position.
+		return `**${game.clan}** — ${game.currClanPoints.toFixed(5)}\n+${game.gainPoints.toFixed(5)}`;
+	}
+	const {above, below} = entry.ranking;
+	return [
+		above ? rankLine(above.rank, above.name, above.points) : null,
+		own,
+		below ? rankLine(below.rank, below.name, below.points) : null
+	].filter(Boolean).join("\n");
+}
+
 function buildEmbed(entry: FeedEntry): EmbedBuilder {
 	const game = entry.game;
 	const embed = new EmbedBuilder()
@@ -61,11 +87,8 @@ function buildEmbed(entry: FeedEntry): EmbedBuilder {
 				inline: true
 			},
 			{
-				//Named "Clan points" rather than "Clan ranking": the game feed carries this clan's score and
-				//gain but not its position or its neighbours, and inventing either would be worse than
-				//omitting them. Add the surrounding ranks here once a source for them exists.
-				name: "Clan points",
-				value: `**${game.clan}** — ${game.currClanPoints.toFixed(5)}\n+${game.gainPoints.toFixed(5)}`,
+				name: entry.ranking ? "Clan ranking" : "Clan points",
+				value: buildRankingValue(entry),
 				inline: true
 			}
 		);
@@ -105,6 +128,10 @@ function buildComponents(settings: LimitedServerSettings): ActionRowBuilder<Butt
 }
 
 export async function sendToFeed(clan: string, message: string, points: number, gameDetails: ClanGame) {
+	//Resolved once for the game rather than per guild. Several guilds can follow the same clan, and they
+	//should all show the same snapshot anyway.
+	const ranking = await getRankingContext(clan);
+
 	for (const guild of getGuildsForClan(clan)) {
 		const g = client.guilds.cache.get(guild);
 		if (!g) continue;
@@ -114,7 +141,7 @@ export async function sendToFeed(clan: string, message: string, points: number, 
 		const channel = g.channels.cache.get(settings.win_feed);
 		if (!channel || !(channel instanceof TextChannel || channel instanceof NewsChannel)) continue;
 
-		const entry: FeedEntry = {msg: null as unknown as Message, guild, points, game: gameDetails, timestamp: Date.now(), claimed: {}};
+		const entry: FeedEntry = {msg: null as unknown as Message, guild, points, game: gameDetails, ranking, timestamp: Date.now(), claimed: {}};
 		const msg = await channel.send({
 			embeds: [buildEmbed(entry).toJSON()],
 			components: buildComponents(settings)
