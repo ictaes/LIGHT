@@ -226,6 +226,14 @@ async function registerCommands() {
 			if (!command || typeof command.execute !== "function" || !command.slashData?.name) {
 				throw new Error("module does not default-export a command");
 			}
+			//`requiresUser` is the discriminant the InteractionCreate handler branches on directly to pick
+			//between a BotUserContext and a bare BaseUserContext - the `satisfies PointCommand`/`GenericCommand`
+			//check that guarantees it is a literal boolean is compile-time only and erased here. A stale or
+			//partially-rebuilt .js file with requiresUser missing/undefined must fail loudly at load instead of
+			//silently reaching the dispatcher and running against the wrong context type.
+			if (typeof command.requiresUser !== "boolean") {
+				throw new Error(`command "${command.slashData.name}" in ${file} has a non-boolean requiresUser`);
+			}
 			const existing = commandRegistry.get(command.slashData.name);
 			//Two files claiming one name means whichever sorts later wins silently, and the other's code is
 			//simply unreachable.
