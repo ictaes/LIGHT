@@ -66,6 +66,21 @@ export function transfer(guild: Snowflake, from: Snowflake, to: Snowflake, amoun
 	return run();
 }
 
+// Atomically checks-and-deducts a bet amount in one transaction, so a double-fired interaction
+// can't have two concurrent executions both read the same stale balance and both pass the
+// sufficient-funds check. Returns false (no mutation) if funds are insufficient at the moment
+// of the atomic update; returns true if the deduction succeeded.
+export function placeBet(guild: Snowflake, member: Snowflake, amount: number, startingBalance: number = 0): boolean {
+	if (amount <= 0) return false;
+	const run = database.transaction((): boolean => {
+		ensureAccount(guild, member, startingBalance);
+		const result = database.prepare("UPDATE economy_accounts SET balance = balance - ? WHERE guild = ? AND member = ? AND balance >= ?")
+			.run(amount, guild, member, amount);
+		return result.changes === 1;
+	});
+	return run();
+}
+
 // ----- Cooldown claims (daily/work) -----
 
 function claimCooldown(guild: Snowflake, member: Snowflake, amount: number, cooldownMs: number, startingBalance: number, column: "last_daily" | "last_work"): boolean {

@@ -2,7 +2,7 @@ import {ChatInputCommandInteraction, Colors, EmbedBuilder, SlashCommandBuilder} 
 import {PointCommand} from "../PointManager.js";
 import {createErrorEmbed, format} from "../util/EmbedUtil.js";
 import {BotUserContext} from "../util/BotUserContext.js";
-import {addBalance, getBalance} from "../util/EconomyUtil.js";
+import {addBalance, placeBet} from "../util/EconomyUtil.js";
 
 export default {
 	slashData: new SlashCommandBuilder().setName("coinflip").setDescription("Bet coins on a coin flip")
@@ -19,15 +19,17 @@ export default {
 			await context.reply(createErrorEmbed(context.user, `❌ The max bet is ${format(settings.max_bet)} 🪙!`));
 			return;
 		}
-		const balance = getBalance(context.guild.id, context.id, settings.starting_balance);
-		if (amount > balance) {
+		if (!placeBet(context.guild.id, context.id, amount, settings.starting_balance)) {
 			await context.reply(createErrorEmbed(context.user, "❌ You don't have enough coins for that bet!"));
 			return;
 		}
 
 		const result = Math.random() < 0.5 ? "heads" : "tails";
 		const won = result === choice;
-		const newBalance = addBalance(context.guild.id, context.id, won ? amount : -amount, settings.starting_balance);
+		// The bet was already deducted atomically above. On a win, credit back the bet plus the
+		// winnings (2x the bet) so the net change matches the original +amount; on a loss, nothing
+		// further is credited so the net change matches the original -amount.
+		const newBalance = addBalance(context.guild.id, context.id, won ? amount * 2 : 0, settings.starting_balance);
 
 		await context.reply({
 			embeds: [
