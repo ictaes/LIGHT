@@ -9,7 +9,8 @@ import {handleDialog, hasDialog} from "./util/SetupDisalogUtil.js";
 import {BotUserContext, getUser} from "./util/BotUserContext.js";
 import {loadSettings, removeServerSetting} from "./BotSettingProvider.js";
 import {handleMessage} from "./util/EntryMessageHandler.js";
-import {handleFeedInteraction} from "./util/ClaimWinFeed.js";
+//Imported for its side effect: registering the win feed's component handlers with the router.
+import "./util/ClaimWinFeed.js";
 import {handleChannelInteraction} from "./util/ClaimWinChannel.js";
 import {showProfileEmbed} from "./commands/ProfileCommand.js";
 import {checkMessage} from "./listeners/MessageAutomod.js";
@@ -59,9 +60,10 @@ client.once(Events.ClientReady, async () => {
 	startScheduler();
 });
 
-//The claim buttons predate the component router and their ids are baked into messages already sitting in
-//people's channels, so they keep raw-string matching rather than being renamed out from under them.
-registerLegacyComponent("claim_win_feed", handleFeedInteraction);
+//ClaimWinChannel keeps raw-string matching: its message is persistent - re-found and edited in place on
+//boot - so the ids already sitting in people's channels have to keep working. The win feed does not need
+//that, because its state is an in-memory cache and its buttons are already inert after a restart, so it
+//registers namespaced handlers with the router itself.
 registerLegacyComponent("claim_win_channel", handleChannelInteraction);
 
 client.on(Events.InteractionCreate, async interaction => {

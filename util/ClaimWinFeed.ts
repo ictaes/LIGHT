@@ -1,122 +1,230 @@
-import {ActionRowBuilder, ButtonBuilder, ButtonStyle, Colors, EmbedBuilder, GuildMember, Interaction, Message, MessageFlags, NewsChannel, Snowflake, TextChannel} from "discord.js";
+import {ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, Colors, EmbedBuilder, GuildMember, Message, MessageFlags, NewsChannel, Snowflake, TextChannel} from "discord.js";
 import {client} from "../PointManager.js";
 import {getGuildsForClan, getServerContext} from "../BotSettingProvider.js";
-import {BotUserContext, getUser} from "./BotUserContext.js";
+//LimitedServerSettings, not ServerSetting: it is what BotUserContext.getSettings() returns, and the full
+//ServerSetting is assignable to it. Typing the helpers this way means neither call site needs a cast.
+import {BotUserContext, getUser, LimitedServerSettings} from "./BotUserContext.js";
 import {format, toRewardString} from "./EmbedUtil.js";
 import {ClanGame} from "./ClanGame.js";
+import {buildCustomId, registerComponent} from "./ComponentRouter.js";
 
-interface claimedCache{ [key: Snowflake]: number };
-let messageCache: { [key: Snowflake]: { msg: Message, points: number, timestamp: number, claimed: claimedCache } } = {};
+const NAMESPACE = "winfeed";
+/** Index used for the plain 1x button, which is not one of the configured factor buttons. */
+const BASE_FACTOR = "base";
+const EXPIRY_MS = 300000;
+
+interface ClaimRecord {
+	/** The multiplier of the button that was pressed. Shown in the Claimed by list. */
+	factor: number;
+	/** Points actually credited, multiplier included. Stored rather than recomputed - see handleUnclaim. */
+	awarded: number;
+	/** Button label at the time of the claim, so the list reads the same even if settings change. */
+	label: string;
+}
+
+interface FeedEntry {
+	msg: Message;
+	guild: Snowflake;
+	/** Base points for the game, before any button factor or server multiplier. */
+	points: number;
+	game: ClanGame;
+	timestamp: number;
+	claimed: { [key: Snowflake]: ClaimRecord };
+}
+
+let messageCache: { [key: Snowflake]: FeedEntry } = {};
+
+function factorButtons(settings: LimitedServerSettings): { id: string, label: string, factor: number }[] {
+	return settings.factor_buttons.map((button, index) => ({
+		id: String(index),
+		label: button.name,
+		factor: button.factor
+	}));
+}
+
+function resolveButton(settings: LimitedServerSettings, id: string): { label: string, factor: number } | null {
+	if (id === BASE_FACTOR) return {label: "Claim", factor: 1};
+	const button = settings.factor_buttons[parseInt(id)];
+	return button ? {label: button.name, factor: button.factor} : null;
+}
+
+function buildEmbed(entry: FeedEntry): EmbedBuilder {
+	const game = entry.game;
+	const embed = new EmbedBuilder()
+		.setTitle(`🏆 ${game.clan} Victory`)
+		.setColor(Colors.Green)
+		.setTimestamp(entry.timestamp)
+		.addFields(
+			{
+				name: "Map",
+				value: `${game.map}\n${format(entry.points)} points${game.contest ? " *(contest ×2)*" : ""}`,
+				inline: true
+			},
+			{
+				//Named "Clan points" rather than "Clan ranking": the game feed carries this clan's score and
+				//gain but not its position or its neighbours, and inventing either would be worse than
+				//omitting them. Add the surrounding ranks here once a source for them exists.
+				name: "Clan points",
+				value: `**${game.clan}** — ${game.currClanPoints.toFixed(5)}\n+${game.gainPoints.toFixed(5)}`,
+				inline: true
+			}
+		);
+
+	const claimers = Object.entries(entry.claimed);
+	if (claimers.length > 0) {
+		embed.addFields({
+			name: "Claimed by",
+			value: claimers.map(([user, record]) => `<@${user}> \`${record.label} ${record.factor}×\``).join("\n").slice(0, 1024),
+			inline: false
+		});
+	}
+	return embed;
+}
+
+function buildComponents(settings: LimitedServerSettings): ActionRowBuilder<ButtonBuilder>[] {
+	const buttons = [
+		new ButtonBuilder().setCustomId(buildCustomId(NAMESPACE, "claim", BASE_FACTOR)).setLabel("Claim (1×)").setStyle(ButtonStyle.Secondary),
+		//A factor above 1 is a bonus and below 1 is a reduction, so the colour carries that rather than
+		//being decorative.
+		...factorButtons(settings).map(button =>
+			new ButtonBuilder().setCustomId(buildCustomId(NAMESPACE, "claim", button.id))
+				.setLabel(`${button.label} (${button.factor}×)`)
+				.setStyle(button.factor >= 1 ? ButtonStyle.Success : ButtonStyle.Danger))
+	];
+
+	//Discord allows five buttons per row. Unclaim goes on its own row so it cannot be mis-clicked while
+	//reaching for the last factor button.
+	const rows: ActionRowBuilder<ButtonBuilder>[] = [];
+	for (let i = 0; i < buttons.length; i += 5) {
+		rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(buttons.slice(i, i + 5)));
+	}
+	rows.push(new ActionRowBuilder<ButtonBuilder>().addComponents(
+		new ButtonBuilder().setCustomId(buildCustomId(NAMESPACE, "unclaim")).setLabel("Unclaim").setEmoji("🔁").setStyle(ButtonStyle.Danger)
+	));
+	return rows;
+}
 
 export async function sendToFeed(clan: string, message: string, points: number, gameDetails: ClanGame) {
 	for (const guild of getGuildsForClan(clan)) {
 		const g = client.guilds.cache.get(guild);
 		if (!g) continue;
-		const context = getServerContext(guild);
-		if (!context) continue;
-		if (!context.win_feed) continue;
-		// TODO: Use getWinFeedChannel once we have a proper guild context
-		const channel = g.channels.cache.get(context.win_feed);
+		const settings = getServerContext(guild);
+		if (!settings) continue;
+		if (!settings.win_feed) continue;
+		const channel = g.channels.cache.get(settings.win_feed);
 		if (!channel || !(channel instanceof TextChannel || channel instanceof NewsChannel)) continue;
 
-		let buttons = context.factor_buttons.map(( factor, index ) =>
-			new ButtonBuilder().setCustomId(`claim_factor_${index}`).setLabel(context.factor_buttons[index].name).setStyle(ButtonStyle.Primary)
-		 );
-
-		if (buttons.length === 0) {
-			buttons.push(
-				new ButtonBuilder().setCustomId("claim").setLabel("Claim Points").setStyle(ButtonStyle.Primary)
-			);
-		}
-		let claimed: claimedCache = {};
-		let msg = await channel.send({
-			content: message,
-			components: [
-				new ActionRowBuilder<ButtonBuilder>().addComponents(buttons)
-			]
+		const entry: FeedEntry = {msg: null as unknown as Message, guild, points, game: gameDetails, timestamp: Date.now(), claimed: {}};
+		const msg = await channel.send({
+			embeds: [buildEmbed(entry).toJSON()],
+			components: buildComponents(settings)
 		}).catch(() => {});
 		if (!msg) continue;
-		messageCache[msg.id] = {msg, points, timestamp: Date.now(), claimed: claimed};
+		entry.msg = msg;
+		messageCache[msg.id] = entry;
 	}
 }
 
-function updateMessage(message: Message, isFirst: boolean, user: Snowflake, factor: number) {
-	let msg = message.content;
-	if (isFirst) {
-		msg += "\n\n**Claimed by:**";
-	}
-	msg += `\n<@${user}>` + (factor !== 1 ? ` \`x ${factor}\`` : ``);
-	message.edit({
-		content: msg
+function refreshMessage(entry: FeedEntry) {
+	const settings = getServerContext(entry.guild);
+	if (!settings) return;
+	entry.msg.edit({
+		embeds: [buildEmbed(entry).toJSON()],
+		components: buildComponents(settings)
 	}).catch(() => {});
 }
 
-export async function handleFeedInteraction(interaction: Interaction) {
-	if (!interaction.isButton() || !(interaction.member instanceof GuildMember)) return;
-	if (interaction.customId !== "claim" && !interaction.customId.startsWith("claim_factor_")) return;
+//Takes a ButtonInteraction rather than the wider ComponentInteraction because getUser only accepts the
+//interaction types BaseUserContext knows how to read a user out of. Both callers narrow first.
+function resolve(interaction: ButtonInteraction): { entry: FeedEntry, context: BotUserContext } | null {
+	if (!(interaction.member instanceof GuildMember)) return null;
+	const entry = messageCache[interaction.message?.id ?? ""];
+	if (!entry) return null;
+	if (entry.timestamp + EXPIRY_MS < Date.now()) return null;
 	const context = getUser(interaction.member, interaction);
-	if (!(context instanceof BotUserContext)) return;
-	const message = interaction.message;
-	if (!message) return;
-	if (!messageCache[message.id]) return;
-	const cache = messageCache[message.id];
-	if (cache.timestamp + 300000 < Date.now()) return;
+	if (!(context instanceof BotUserContext)) return null;
+	return {entry, context};
+}
 
-	let points = cache.points;
-	let realPoints = points;
-	
-	let factorInt = 1;
-	let isClaimEdit = false;
-	if (interaction.customId.startsWith("claim_factor_")) {
-		let factor = context.getSettings().factor_buttons[parseInt(interaction.customId.substring(13))] ;
-		if (!factor) return;
-		factorInt = factor.factor;
-	}
-	points = Math.ceil(points * factorInt );
-	const multiplier = context.getActiveMultiplier();
-	realPoints = Math.ceil(points * (multiplier ? multiplier.amount : 1));
+registerComponent(NAMESPACE, "claim", async (interaction, args) => {
+	if (!interaction.isButton()) return;
+	const resolved = resolve(interaction);
+	if (!resolved) return;
+	const {entry, context} = resolved;
 
-	//Already claimed with this factor
-	if (cache.claimed[interaction.user.id] && cache.claimed[interaction.user.id] == factorInt ) {
-		interaction.reply({
-			embeds: [
-				new EmbedBuilder().setAuthor(context.asAuthor()).setDescription("You have already claimed this win!").setColor(Colors.Red).setTimestamp().toJSON()
-			],
+	const button = resolveButton(context.getSettings(), args[0]);
+	if (!button) return;
+
+	const existing = entry.claimed[interaction.user.id];
+	if (existing && existing.factor === button.factor) {
+		await interaction.reply({
+			embeds: [new EmbedBuilder().setAuthor(context.asAuthor()).setDescription("You have already claimed this win!").setColor(Colors.Red).setTimestamp().toJSON()],
 			flags: MessageFlags.Ephemeral
 		}).catch(() => {});
 		return;
 	}
-	//Change claimed factor
-	else if(cache.claimed[interaction.user.id] && cache.claimed[interaction.user.id] != factorInt )
-	{
-		isClaimEdit = true;
-		//Calculate points to remove using previously claimed factor
-		const realPoints = Math.ceil(
-					cache.points * cache.claimed[interaction.user.id] * (multiplier ? multiplier.amount : 1));
-		const regex = new RegExp( '\n<\@' + interaction.user.id + '>.*');
-		//Edit will be executed later by registerWin response
-		message.content = message.content.replace( regex, '' );
-		await context.removeWin(realPoints);
-	}
-	context.registerWin(realPoints).then((response) => {
-		cache.claimed[interaction.user.id] = factorInt;
-		updateMessage(cache.msg, Object.keys(cache.claimed).length == 1 && !isClaimEdit, interaction.user.id, factorInt);
-		interaction.reply({
-			embeds: [
-				new EmbedBuilder().setAuthor(context.asAuthor()).setDescription(`Registered win of ${format(points)} ${multiplier ? `\`x ${multiplier.amount} (multiplier)\` ` : ``}points to your balance` + toRewardString(response, true, false)).setTimestamp().setColor(Colors.Green).toJSON()
-			],
+
+	//Switching factor: take back exactly what was credited before, not a fresh calculation. The server
+	//multiplier can change between the two presses, and recomputing would remove a different number of
+	//points than were added.
+	if (existing) await context.removeWin(existing.awarded);
+
+	const multiplier = context.getActiveMultiplier();
+	const shown = Math.ceil(entry.points * button.factor);
+	const awarded = Math.ceil(shown * (multiplier ? multiplier.amount : 1));
+
+	const response = await context.registerWin(awarded);
+	entry.claimed[interaction.user.id] = {factor: button.factor, awarded, label: button.label};
+	refreshMessage(entry);
+
+	await interaction.reply({
+		embeds: [
+			new EmbedBuilder().setAuthor(context.asAuthor())
+				.setDescription(`${existing ? "Updated your claim to" : "Registered win of"} ${format(shown)} ${multiplier ? `\`x ${multiplier.amount} (multiplier)\` ` : ``}points` + toRewardString(response, true, false))
+				.setTimestamp().setColor(Colors.Green).toJSON()
+		],
+		flags: MessageFlags.Ephemeral
+	}).catch(() => {});
+});
+
+registerComponent(NAMESPACE, "unclaim", async interaction => {
+	if (!interaction.isButton()) return;
+	const resolved = resolve(interaction);
+	if (!resolved) return;
+	const {entry, context} = resolved;
+
+	const existing = entry.claimed[interaction.user.id];
+	if (!existing) {
+		await interaction.reply({
+			embeds: [new EmbedBuilder().setAuthor(context.asAuthor()).setDescription("You have not claimed this win.").setColor(Colors.Red).setTimestamp().toJSON()],
 			flags: MessageFlags.Ephemeral
 		}).catch(() => {});
-	});
-}
+		return;
+	}
+
+	//Deducts the stored amount rather than recomputing, so an unclaim always undoes exactly what the claim
+	//did even if the multiplier has since changed or expired.
+	const response = await context.removeWin(existing.awarded);
+	delete entry.claimed[interaction.user.id];
+	refreshMessage(entry);
+
+	await interaction.reply({
+		embeds: [
+			new EmbedBuilder().setAuthor(context.asAuthor())
+				.setDescription(`Removed your claim of ${format(existing.awarded)} points` + toRewardString(response, false, false))
+				.setTimestamp().setColor(Colors.Red).toJSON()
+		],
+		flags: MessageFlags.Ephemeral
+	}).catch(() => {});
+});
 
 function refresh() {
 	for (const id of Object.keys(messageCache)) {
-		const cache = messageCache[id];
-		if (cache.timestamp + 300000 < Date.now()) {
-			cache.msg.edit({
-				components: []
-			}).catch(() => {});
+		const entry = messageCache[id];
+		if (entry.timestamp + EXPIRY_MS < Date.now()) {
+			//Buttons are dropped rather than left to fail silently: the cache is in memory, so after this
+			//point (or after a restart) a press would do nothing with no explanation.
+			entry.msg.edit({components: []}).catch(() => {});
 			delete messageCache[id];
 		}
 	}
