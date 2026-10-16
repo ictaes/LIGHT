@@ -8,13 +8,18 @@ deliberate: it tests the artifact that actually runs in production, and it avoid
 
 ## What can and cannot be tested here
 
-Only modules with no runtime dependency on a live Discord client. Today that means `util/ComponentRouter.js`
-and `db/migrations/`.
+Only modules with no runtime dependency on a live Discord client. A module that reaches `PointManager.js`
+cannot be imported in a test, because `PointManager` calls `client.login()` and binds port 34583 at module
+evaluation — the test process then logs a second bot in and never exits.
 
-Most util modules **cannot** be imported in a test, because importing them reaches `PointManager.js`, which
-calls `client.login()` and binds a port at module evaluation. `util/PermissionUtil.js` is the notable
-casualty: its legacy `mod_roles` lookup goes through `BotSettingProvider` → `PointManager`. Breaking that
-chain is part of moving `logAction`/`logModAction` into a `LogUtil` module.
+`util/PermissionUtil.js` used to be exactly that casualty. It is testable now, and
+`PermissionUtil.test.mjs` exists partly to keep it that way: if the cycle comes back, that file hangs
+instead of finishing in about a second. Note it has to `process.chdir()` into a scratch directory before
+importing, because both `DataBaseManager` and `Config` read from `process.cwd()`.
 
-When adding a new util module, keep it importable if you want it tested: depend on `Config.js` rather than
-`PointManager.js`, and use `import type` for anything only needed as a type.
+When adding a new util module, keep it importable if you want it tested:
+
+- depend on `Config.js`, never `PointManager.js`
+- use `import type` for anything used only as a type — `BotUserContext` in particular drags in the client
+- if you need shared mutable state, put it in a module with no imports (see `util/WebhookSubscriptions.ts`)
+  rather than reaching for the module that happens to own the behaviour
