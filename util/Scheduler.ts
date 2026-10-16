@@ -11,12 +11,12 @@ const RETRY_BACKOFF_MS = 30_000;
 /**
  * Durable task kinds. Add a member here when you add a handler - keeping it a closed union means a typo in a
  * schedule() call is a compile error rather than a task that silently never runs.
+ *
+ * Currently empty: no feature schedules a durable task today. BanCommand.ts/TimeoutCommand.ts rely on
+ * Discord's own native ban/timeout expiry instead. Add members back here (and register a handler) when a
+ * feature actually needs durable scheduling.
  */
-export type TaskType =
-	| "raid_expire"
-	| "quarantine_release"
-	| "untimeout"
-	| "unban";
+export type TaskType = never;
 
 export interface ScheduledTaskRow {
 	id: number;
@@ -46,8 +46,8 @@ let ticking = false;
  * Registers the handler for a durable task type.
  *
  * Handlers MUST be idempotent. A task is deleted only after its handler resolves, so a crash mid-handler
- * leaves the row in place and it will run again on the next boot. That is the deliberate trade: running an
- * unban twice is harmless, whereas dropping one would leave a member banned forever.
+ * leaves the row in place and it will run again on the next boot. That is the deliberate trade: running a
+ * reversible action twice is harmless, whereas dropping one could leave a durable effect never undone.
  */
 export function registerHandler<P = unknown>(type: TaskType, handle: (payload: P, task: ScheduledTaskRow) => Promise<void>): void {
 	if (handlers.has(type)) throw new Error(`Duplicate scheduler handler for "${type}"`);
@@ -117,15 +117,15 @@ function fail(task: ScheduledTaskRow, reason: string) {
 
 async function runDueTasks() {
 	//Tasks whose time passed while the bot was offline are simply due now, so catch-up needs no special case.
-	//Handlers are responsible for tolerating a very stale task (see the raid_expire handler).
+	//Handlers are responsible for tolerating a very stale task.
 	const due = database.prepare<[number, number], ScheduledTaskRow>("SELECT * FROM scheduled_tasks WHERE run_at <= ? ORDER BY run_at LIMIT ?")
 		.all(Date.now(), BATCH_SIZE);
 
 	for (const task of due) {
 		const handler = handlers.get(task.type);
 		if (!handler) {
-			//Most likely a load-order bug or a removed feature. Don't discard silently - a missing handler for
-			//"unban" would otherwise strand a member permanently.
+			//Most likely a load-order bug or a removed feature. Don't discard silently - a missing handler
+			//could otherwise strand a durable effect that was never followed through on.
 			fail(task, `no handler registered for type "${task.type}"`);
 			continue;
 		}
