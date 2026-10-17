@@ -1,4 +1,4 @@
-import {ClientUser} from "discord.js";
+import {ClientUser, Message} from "discord.js";
 
 /**
  * Strips a leading bot mention (`<@id>` or `<@!id>`) from message content. Shared by the legacy free-text
@@ -14,4 +14,14 @@ export function stripMentionPrefix(content: string, botUser: ClientUser | null):
 	if (content.startsWith(withBang)) return content.substring(withBang.length);
 	if (content.startsWith(plain)) return content.substring(plain.length);
 	return null;
+}
+
+/**
+ * True if `message` is a reply to one of the bot's own messages - the other half of the "mention me or reply
+ * to one of my messages" contract /shortcommands has always documented. `mentions.repliedUser` comes from the
+ * message-reference relationship itself, not from content parsing, so this is reliable even if the reply ping
+ * was suppressed.
+ */
+export function isReplyToBot(message: Message, botUser: ClientUser | null): boolean {
+	return !!botUser && message.mentions.repliedUser?.id === botUser.id;
 }

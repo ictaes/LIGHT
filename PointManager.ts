@@ -10,6 +10,7 @@ import {BotUserContext, getUser} from "./util/BotUserContext.js";
 import {loadSettings, removeServerSetting} from "./BotSettingProvider.js";
 import {handleMessage} from "./util/EntryMessageHandler.js";
 import {tryPrefixDispatch} from "./util/PrefixDispatcher.js";
+import {isReplyToBot, stripMentionPrefix} from "./util/MentionPrefix.js";
 //Imported for its side effect: registering the win feed's component handlers with the router.
 import "./util/ClaimWinFeed.js";
 import {handleChannelInteraction} from "./util/ClaimWinChannel.js";
@@ -170,7 +171,16 @@ client.on(Events.MessageCreate, async message => {
 		try {
 			if (await checkMessage(context, message)) return;
 			if (await tryPrefixDispatch(context, message)) return;
-			await handleMessage(context, message.content)
+			//The legacy free-text shorthand chain has always been documented (/shortcommands) as only firing
+			//when the bot is mentioned or the message replies to one of its own - but nothing previously
+			//enforced that here, so any plain chat message reached these parsers. Most survive that by luck
+			//(tryAddEntryMessage requires a valid point value, etc.), but tryProfileEntryMessage's fuzzy
+			//name-search has no such guard and would publicly post a stranger's profile whenever a message's
+			//first word happened to be a substring of some member's tag or nickname.
+			const mentioned = stripMentionPrefix(message.content, client.user) !== null;
+			if (mentioned || isReplyToBot(message, client.user)) {
+				await handleMessage(context, message.content);
+			}
 		} catch (error) {
 			console.error(error);
 			await message.reply("An internal error occurred!");
