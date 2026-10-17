@@ -9,6 +9,7 @@ import {handleDialog, hasDialog} from "./util/SetupDisalogUtil.js";
 import {BotUserContext, getUser} from "./util/BotUserContext.js";
 import {loadSettings, removeServerSetting} from "./BotSettingProvider.js";
 import {handleMessage} from "./util/EntryMessageHandler.js";
+import {tryPrefixDispatch} from "./util/PrefixDispatcher.js";
 //Imported for its side effect: registering the win feed's component handlers with the router.
 import "./util/ClaimWinFeed.js";
 import {handleChannelInteraction} from "./util/ClaimWinChannel.js";
@@ -168,6 +169,7 @@ client.on(Events.MessageCreate, async message => {
 
 		try {
 			if (await checkMessage(context, message)) return;
+			if (await tryPrefixDispatch(context, message)) return;
 			await handleMessage(context, message.content)
 		} catch (error) {
 			console.error(error);
@@ -284,6 +286,17 @@ async function refreshSlashCommands() {
 
 export function getCommandId(name: string): string {
 	return commandIdTable[name] || "0";
+}
+
+//For util/PrefixDispatcher.ts (resolving a prefix/alias token to a command) and commands/AliasCommand.ts
+//(rejecting an alias that would collide with a real command name). The Collection itself stays private so
+//nothing outside this file can mutate the registry.
+export function getRegisteredCommand(name: string): AnyCommand | undefined {
+	return commandRegistry.get(name);
+}
+
+export function isRegisteredCommandName(name: string): boolean {
+	return commandRegistry.has(name);
 }
 
 //These moved to util/LogUtil.ts and are re-exported here so the ~10 existing call sites in commands/ and

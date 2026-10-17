@@ -4,6 +4,7 @@ import scheduledTasks from "./002_scheduled_tasks.js";
 import fakePermissions from "./003_fake_permissions.js";
 import honeypot from "./004_honeypot.js";
 import logConfig from "./005_log_config.js";
+import prefixCommands from "./006_prefix_commands.js";
 
 export interface Migration {
 	/** 1-based, contiguous, and never reused or renumbered once released - it is the on-disk schema version. */
@@ -22,7 +23,8 @@ export const migrations: Migration[] = [
 	scheduledTasks,
 	fakePermissions,
 	honeypot,
-	logConfig
+	logConfig,
+	prefixCommands
 ];
 
 /**
@@ -50,7 +52,9 @@ export const GUILD_SCOPED_TABLES: string[] = [
 	"fake_permissions",
 	"honeypot_channels",
 	"honeypot_hits",
-	"log_config"
+	"log_config",
+	"prefix_config",
+	"command_aliases"
 ];
 
 //Guards against the two ways a hand-maintained list like this rots: a duplicated version (silently skipped)

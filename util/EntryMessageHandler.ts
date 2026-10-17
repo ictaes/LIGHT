@@ -7,11 +7,10 @@ import {tryMultiplierEntryMessage} from "../commands/MultiplierCommand.js";
 import {tryLeaderboardEntryMessage} from "../commands/LeaderboardCommand.js";
 import {ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, NewsChannel, TextChannel} from "discord.js";
 import {getServerContext} from "../BotSettingProvider.js";
+import {stripMentionPrefix} from "./MentionPrefix.js";
 
 export async function handleMessage(context: BotUserContext, message: string) {
-	if (message.startsWith("<@" + client.user?.id + ">")) message = message.substring((client.user?.id.length || 0) + 3);
-	else if (message.startsWith("<@!" + client.user?.id + ">")) message = message.substring((client.user?.id.length || 0) + 4);
-	message = message.trim();
+	message = (stripMentionPrefix(message, client.user) ?? message).trim();
 	if (message === "") {
 		await context.reply("Please use slash commands to interact with me.");
 		return;

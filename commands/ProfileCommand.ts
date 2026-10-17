@@ -3,6 +3,7 @@ import {PointCommand, rewards} from "../PointManager.js";
 import {createThemedEmbed, format} from "../util/EmbedUtil.js";
 import {BotUserContext, getRawUser} from "../util/BotUserContext.js";
 import {renderDualChart} from "../util/GraphRenderer.js";
+import {PrefixInvocation} from "../util/PrefixInvocation.js";
 
 export default {
 	requiresUser: true,
@@ -64,7 +65,10 @@ export async function showProfileEmbed(context: BotUserContext, target: Snowflak
 	};
 
 	let msg: Message;
-	if (ephemeral && context.base && !(context.base instanceof Message)) {
+	//Ephemeral only means anything for a real interaction - a PrefixInvocation is backed by a plain text
+	//message, which has no ephemeral concept, so it must take the normal context.reply() path below same as
+	//a genuine Message-based invocation.
+	if (ephemeral && context.base && !(context.base instanceof Message) && !(context.base instanceof PrefixInvocation)) {
 		content.flags ||= MessageFlags.Ephemeral;
 		let response = await context.base.reply(content);
 		msg = await response.fetch();
