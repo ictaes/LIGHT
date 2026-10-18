@@ -7,7 +7,8 @@
     "build": "node scripts/build.mjs",
     "typecheck": "node scripts/build.mjs --noEmit",
     "test": "node scripts/build.mjs && node --test \"tests/**/*.test.mjs\"",
-    "start": "cd build && node PointManager.js"
+    "start": "cd build && node PointManager.js",
+    "start:host": "node scripts/start-both.mjs"
   },
   "dependencies": {
     "@types/node": "25.9.5",
